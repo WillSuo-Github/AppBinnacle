@@ -1,0 +1,19 @@
+.DS_Store
+
+# The Xcode project is generated from project.yml by XcodeGen.
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+DerivedData/
+build/
+.build/
+dist/
+
+# Local Codex run configuration (may contain machine-specific paths).
+.codex/
+
+# Never commit credentials.
+*.p8
+*service-account*.json
+*-credentials.json

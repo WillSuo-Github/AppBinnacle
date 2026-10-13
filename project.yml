@@ -1,0 +1,89 @@
+name: AppBinnacle
+options:
+  bundleIdPrefix: dev.appbinnacle
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+packages:
+  ArgumentParser:
+    url: https://github.com/apple/swift-argument-parser
+    from: "1.5.0"
+targets:
+  AppBinnacle:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: AppBinnacle
+        PRODUCT_BUNDLE_IDENTIFIER: dev.appbinnacle.AppBinnacle
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: AppBinnacle
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 AppBinnacle contributors. MIT License."
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        COMBINE_HIDPI_IMAGES: YES
+  binnacle:
+    type: tool
+    platform: macOS
+    sources:
+      - path: CLI
+      - path: Shared
+    dependencies:
+      - package: ArgumentParser
+    settings:
+      base:
+        PRODUCT_NAME: binnacle
+        PRODUCT_BUNDLE_IDENTIFIER: dev.appbinnacle.cli
+  BinnacleTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.appbinnacle.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  AppBinnacle:
+    build:
+      targets:
+        AppBinnacle: all
+        # Testing also compiles the CLI, so a change in Shared/ cannot silently break it.
+        binnacle: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BinnacleTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  binnacle:
+    build:
+      targets:
+        binnacle: all
+    run:
+      config: Debug
+    archive:
+      config: Release
