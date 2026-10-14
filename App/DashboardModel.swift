@@ -226,7 +226,7 @@ final class DashboardModel {
     private func resolveCredentials(_ configuration: BinnacleConfiguration) async -> ResolvedCredentials {
         let secrets = secrets
         return await Task.detached {
-            CredentialResolver(secrets: secrets, environment: [:]).resolve(configuration)
+            CredentialResolver(secrets: secrets, environment: ProcessInfo.processInfo.environment).resolve(configuration)
         }.value
     }
 

@@ -35,8 +35,13 @@ struct CrashlyticsClient: Sendable {
         guard let url = components.url else {
             throw BinnacleError.invalidArgument("Could not build the Crashlytics request for \(appID).")
         }
-        let data = try await GoogleAPI.send(URLRequest(url: url), service: Self.serviceName, tokens: tokens, transport: transport)
-        return try CrashlyticsResponse.issues(from: data)
+        do {
+            let data = try await GoogleAPI.send(URLRequest(url: url), service: Self.serviceName, tokens: tokens, transport: transport)
+            return try CrashlyticsResponse.issues(from: data)
+        } catch BinnacleError.http(_, 404, _) {
+            // When an app has no Crashlytics data or reports recorded yet, Google returns 404.
+            return []
+        }
     }
 }
 
