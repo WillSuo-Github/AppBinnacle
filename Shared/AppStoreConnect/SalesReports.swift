@@ -12,7 +12,7 @@ enum SalesCategory: String, Codable, CaseIterable, Sendable {
     init(productType: String) {
         switch productType.trimmed.uppercased() {
         case "1", "1F", "1T", "F1": self = .firstDownload
-        case "3", "3F": self = .redownload
+        case "3", "3F", "F3": self = .redownload
         case "7", "7F", "7T", "F7": self = .update
         case "IA1", "IA9", "IAY", "FI1": self = .inAppPurchase
         default: self = .other

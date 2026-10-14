@@ -28,11 +28,11 @@ struct SalesReportTests {
 
     @Test func classifiesDocumentedProductTypes() {
         for code in ["1", "1F", "1T", "F1"] { #expect(SalesCategory(productType: code) == .firstDownload) }
-        for code in ["3", "3F"] { #expect(SalesCategory(productType: code) == .redownload) }
+        for code in ["3", "3F", "F3"] { #expect(SalesCategory(productType: code) == .redownload) }
         for code in ["7", "7F", "7T", "F7"] { #expect(SalesCategory(productType: code) == .update) }
         for code in ["IA1", "IA9", "IAY", "FI1"] { #expect(SalesCategory(productType: code) == .inAppPurchase) }
         // Codes that are absent from Apple's current table are not guessed.
-        for code in ["1-B", "F3", "3T", "IAC", "ZZ", ""] { #expect(SalesCategory(productType: code) == .other) }
+        for code in ["1-B", "3T", "IAC", "ZZ", ""] { #expect(SalesCategory(productType: code) == .other) }
     }
 
     @Test func parsesEveryRowByColumnName() throws {
