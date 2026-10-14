@@ -20,7 +20,16 @@ struct BinnacleConfiguration: Codable, Equatable, Sendable {
     }
 
     func app(matching query: String) -> TrackedApp? {
-        apps.first { $0.matches(query) }
+        if let exact = apps.first(where: { $0.matches(query) }) {
+            return exact
+        }
+        let needle = query.trimmed.lowercased()
+        guard !needle.isEmpty else { return nil }
+        return apps.first(where: {
+            $0.name.lowercased().contains(needle) ||
+            $0.bundleID.lowercased().contains(needle) ||
+            $0.sku.lowercased().contains(needle)
+        })
     }
 
     /// Adds apps that are not tracked yet and refreshes App Store metadata for tracked ones.
@@ -158,8 +167,10 @@ struct ConfigurationStore: Sendable {
     func load() throws -> BinnacleConfiguration {
         let path = fileURL.path(percentEncoded: false)
         guard FileManager.default.fileExists(atPath: path) else { return BinnacleConfiguration() }
+        let data = try Data(contentsOf: fileURL)
+        if data.isEmpty { return BinnacleConfiguration() }
         do {
-            return try JSONDecoder().decode(BinnacleConfiguration.self, from: Data(contentsOf: fileURL))
+            return try JSONDecoder().decode(BinnacleConfiguration.self, from: data)
         } catch {
             throw BinnacleError.fileSystem("Could not read \(path): \(error.localizedDescription)")
         }

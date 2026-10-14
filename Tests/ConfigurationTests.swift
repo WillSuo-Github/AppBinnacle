@@ -9,6 +9,8 @@ struct ConfigurationTests {
         #expect(configuration.appStoreConnect == AppStoreConnectSettings())
         #expect(configuration.apps.first?.ga4PropertyID == "")
         #expect(configuration.app(matching: "weather pal")?.appleID == "1234567890")
+        #expect(configuration.app(matching: "weather")?.appleID == "1234567890")
+        #expect(configuration.app(matching: "pal")?.appleID == "1234567890")
     }
 
     @Test func savesAndLoadsRoundTrip() throws {
@@ -22,6 +24,11 @@ struct ConfigurationTests {
             apps: [Fixtures.weatherPal])
         try store.save(configuration)
         #expect(try store.load() == configuration)
+
+        // An empty 0-byte file (e.g. freshly created with touch/mktemp) should decode as default configuration.
+        try Data().write(to: file)
+        #expect(try store.load() == BinnacleConfiguration())
+
         let permissions = try FileManager.default.attributesOfItem(atPath: file.path(percentEncoded: false))[.posixPermissions] as? Int
         #expect(permissions == 0o600)
     }
