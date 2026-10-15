@@ -39,6 +39,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         COMBINE_HIDPI_IMAGES: YES
+
   binnacle:
     type: tool
     platform: macOS
@@ -65,9 +66,8 @@ schemes:
   AppBinnacle:
     build:
       targets:
+        binnacle: all
         AppBinnacle: all
-        # Testing also compiles the CLI, so a change in Shared/ cannot silently break it.
-        binnacle: [test]
     run:
       config: Debug
     test:

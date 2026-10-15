@@ -18,12 +18,24 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 xcodebuild \
   -project "$ROOT_DIR/AppBinnacle.xcodeproj" \
+  -scheme binnacle \
+  -configuration Debug \
+  -destination "platform=macOS" \
+  -derivedDataPath "$DERIVED_DATA" \
+  -quiet \
+  build
+
+xcodebuild \
+  -project "$ROOT_DIR/AppBinnacle.xcodeproj" \
   -scheme AppBinnacle \
   -configuration Debug \
   -destination "platform=macOS" \
   -derivedDataPath "$DERIVED_DATA" \
   -quiet \
   build
+
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+cp "$DERIVED_DATA/Build/Products/Debug/binnacle" "$APP_BUNDLE/Contents/MacOS/binnacle" 
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

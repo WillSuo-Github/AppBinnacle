@@ -17,6 +17,24 @@ struct SettingsView: View {
 
 private struct GeneralSettingsView: View {
     @Environment(DashboardModel.self) private var model
+    @State private var isCliLinked: Bool = {
+        let destination = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".local/bin/binnacle").path(percentEncoded: false)
+        return FileManager.default.fileExists(atPath: destination)
+    }()
+
+    private func linkCli(embeddedPath: String) {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let binDir = home.appending(path: ".local/bin")
+        let destination = binDir.appending(path: "binnacle")
+        do {
+            try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.createSymbolicLink(atPath: destination.path(percentEncoded: false), withDestinationPath: embeddedPath)
+            isCliLinked = true
+        } catch {
+            model.settingsMessage = "Failed to link CLI: \(error.localizedDescription)"
+        }
+    }
 
     var body: some View {
         @Bindable var model = model
@@ -35,6 +53,39 @@ private struct GeneralSettingsView: View {
                 Text("Automatic Background Refresh")
             } footer: {
                 Text("AppBinnacle periodically syncs App Store Connect and Firebase in the background while complying with Apple and Google API rate limits.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                let embeddedPath = Bundle.main.bundleURL.appending(path: "Contents/MacOS/binnacle").path(percentEncoded: false)
+                LabeledContent("Embedded CLI Path") {
+                    Text(embeddedPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isCliLinked ? "Terminal Command Installed" : "Install 'binnacle' Command")
+                            .font(.body.weight(.medium))
+                        Text(isCliLinked ? "Linked to ~/.local/bin/binnacle, runnable directly from any terminal" : "Create a link in ~/.local/bin so you can run 'binnacle' from any terminal")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button(isCliLinked ? "Relink…" : "Install…") {
+                        linkCli(embeddedPath: embeddedPath)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } header: {
+                Text("Command Line Interface (CLI)")
+            } footer: {
+                Text("binnacle shares all Keychain credentials and local app configurations with AppBinnacle.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
