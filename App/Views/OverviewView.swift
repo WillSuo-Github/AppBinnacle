@@ -164,7 +164,7 @@ struct OverviewView: View {
                 title: "Active Users",
                 value: Int(engagement.activeUsers.current).formatted(),
                 change: engagement.activeUsers,
-                caption: "\(Int(engagement.averageDailyActiveUsers.rounded()).formatted()) per day on average",
+                caption: "\(Int(engagement.averageDailyActiveUsers.rounded()).formatted())/day avg",
                 systemImage: "person.2.fill",
                 accentColor: .indigo
             )

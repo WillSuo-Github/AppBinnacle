@@ -68,7 +68,8 @@ struct MetricTile: View {
     @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
             HStack(alignment: .center, spacing: 8) {
                 if let systemImage {
                     Image(systemName: systemImage)
@@ -84,6 +85,9 @@ struct MetricTile: View {
                 Spacer(minLength: 0)
             }
 
+            Spacer(minLength: 8)
+
+            // Primary Metric Value
             Text(value)
                 .font(.system(size: 26, weight: .bold, design: .rounded))
                 .monospacedDigit()
@@ -91,26 +95,32 @@ struct MetricTile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
+            Spacer(minLength: 8)
+
+            // Footer (Fixed 22pt height so all cards align perfectly)
             HStack(alignment: .center, spacing: 6) {
                 if let change {
                     ChangeLabel(change: change, higherIsBetter: higherIsBetter)
                 }
                 if let caption {
                     Text(caption)
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
+                Spacer(minLength: 0)
             }
+            .frame(height: 22, alignment: .leading)
         }
         .padding(14)
+        .frame(height: 116)
         .frame(maxWidth: .infinity, alignment: .leading)
         .appleCard(cornerRadius: 12)
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(isHovered ? accentColor.opacity(0.35) : Color.clear, lineWidth: 1)
         }
-        .scaleEffect(isHovered ? 1.006 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onHover { isHovered = $0 }
         .accessibilityElement(children: .combine)
@@ -133,6 +143,8 @@ struct ChangeLabel: View {
                     .font(.system(size: 9, weight: .bold))
                 Text(isUnchanged ? "0.0%" : Format.signedPercent(percent))
                     .font(.caption2.weight(.semibold).monospacedDigit())
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
@@ -142,6 +154,8 @@ struct ChangeLabel: View {
             HStack(spacing: 3) {
                 Text("Prev: \(change.previous.formatted())")
                     .font(.caption2.weight(.medium).monospacedDigit())
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
@@ -155,7 +169,7 @@ struct MetricGrid<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
             content
         }
     }
