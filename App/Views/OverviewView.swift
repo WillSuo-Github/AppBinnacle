@@ -6,6 +6,10 @@ struct OverviewView: View {
     let brief: AppBrief
     @Environment(DashboardModel.self) private var model
 
+    private var isPortfolio: Bool {
+        snapshot.app.appleID == DashboardModel.allAppsID
+    }
+
     var body: some View {
         DashboardPage {
             MetricGrid {
@@ -16,7 +20,7 @@ struct OverviewView: View {
                 reviewsTile
             }
 
-            if model.isAllApps && !model.configuration.apps.isEmpty {
+            if isPortfolio && !model.configuration.apps.isEmpty {
                 PortfolioMatrixCard(
                     snapshots: model.loadedSnapshots,
                     apps: model.configuration.apps
@@ -32,11 +36,13 @@ struct OverviewView: View {
             HStack(alignment: .top, spacing: 14) {
                 if let sales = snapshot.sales, let range = snapshot.salesRange {
                     ChartCard(
-                        title: model.isAllApps ? "Total First Downloads" : "First Downloads",
+                        title: isPortfolio ? "Total First Downloads" : "First Downloads",
                         subtitle: range.shortLabel,
                         systemImage: "arrow.down.circle.fill",
                         accentColor: .blue,
-                        action: { model.push(.section(.acquisition)) },
+                        action: {
+                            model.push(.section(.acquisition, appID: isPortfolio ? nil : snapshot.app.appleID))
+                        },
                         actionLabel: "Downloads & Revenue"
                     ) {
                         let days = sales.days(in: range)
@@ -83,11 +89,13 @@ struct OverviewView: View {
 
                 if let analytics = snapshot.analytics {
                     ChartCard(
-                        title: model.isAllApps ? "Total Daily Active Users" : "Daily Active Users",
+                        title: isPortfolio ? "Total Daily Active Users" : "Daily Active Users",
                         subtitle: snapshot.range.shortLabel,
                         systemImage: "person.2.fill",
                         accentColor: .indigo,
-                        action: { model.push(.section(.engagement)) },
+                        action: {
+                            model.push(.section(.engagement, appID: isPortfolio ? nil : snapshot.app.appleID))
+                        },
                         actionLabel: "Engagement"
                     ) {
                         let daily = analytics.daily(in: snapshot.range)
@@ -135,91 +143,103 @@ struct OverviewView: View {
     }
 
     @ViewBuilder private var downloadsTile: some View {
+        let action = {
+            model.push(.section(.acquisition, appID: isPortfolio ? nil : snapshot.app.appleID))
+        }
         if let acquisition = brief.acquisition {
             MetricTile(
-                title: model.isAllApps ? "Total Downloads" : "First Downloads",
+                title: isPortfolio ? "Total Downloads" : "First Downloads",
                 value: Int(acquisition.firstDownloads.current).formatted(),
                 change: acquisition.firstDownloads,
                 caption: acquisition.period == brief.period ? nil : "Through \(acquisition.period.end.startDate().formatted(date: .abbreviated, time: .omitted))",
                 systemImage: "arrow.down.circle.fill",
                 accentColor: .blue,
-                action: { model.push(.section(.acquisition)) }
+                action: action
             )
         } else {
             unavailableTile(
-                model.isAllApps ? "Total Downloads" : "First Downloads",
+                isPortfolio ? "Total Downloads" : "First Downloads",
                 .appStoreSales,
                 systemImage: "arrow.down.circle.fill",
                 accentColor: .blue,
-                action: { model.push(.section(.acquisition)) }
+                action: action
             )
         }
     }
 
     @ViewBuilder private var proceedsTile: some View {
+        let action = {
+            model.push(.section(.acquisition, appID: isPortfolio ? nil : snapshot.app.appleID))
+        }
         if let acquisition = brief.acquisition {
             if let top = acquisition.proceeds.first {
                 MetricTile(
-                    title: model.isAllApps ? "Total Proceeds" : "Proceeds",
+                    title: isPortfolio ? "Total Proceeds" : "Proceeds",
                     value: top.current.formatted(.currency(code: top.currency)),
                     change: MetricChange(current: top.current.doubleValue, previous: top.previous.doubleValue),
                     caption: acquisition.proceeds.count > 1 ? "+ \(acquisition.proceeds.count - 1) more currencies" : nil,
                     systemImage: "dollarsign.circle.fill",
                     accentColor: .green,
-                    action: { model.push(.section(.acquisition)) }
+                    action: action
                 )
             } else {
                 MetricTile(
-                    title: model.isAllApps ? "Total Proceeds" : "Proceeds",
+                    title: isPortfolio ? "Total Proceeds" : "Proceeds",
                     value: "None",
                     caption: "No paid sales in this period",
                     systemImage: "dollarsign.circle.fill",
                     accentColor: .green,
-                    action: { model.push(.section(.acquisition)) }
+                    action: action
                 )
             }
         } else {
             unavailableTile(
-                model.isAllApps ? "Total Proceeds" : "Proceeds",
+                isPortfolio ? "Total Proceeds" : "Proceeds",
                 .appStoreSales,
                 systemImage: "dollarsign.circle.fill",
                 accentColor: .green,
-                action: { model.push(.section(.acquisition)) }
+                action: action
             )
         }
     }
 
     @ViewBuilder private var activeUsersTile: some View {
+        let action = {
+            model.push(.section(.engagement, appID: isPortfolio ? nil : snapshot.app.appleID))
+        }
         if let engagement = brief.engagement {
             MetricTile(
-                title: model.isAllApps ? "Total Active Users" : "Active Users",
+                title: isPortfolio ? "Total Active Users" : "Active Users",
                 value: Int(engagement.activeUsers.current).formatted(),
                 change: engagement.activeUsers,
                 caption: "\(Int(engagement.averageDailyActiveUsers.rounded()).formatted())/day avg",
                 systemImage: "person.2.fill",
                 accentColor: .indigo,
-                action: { model.push(.section(.engagement)) }
+                action: action
             )
         } else {
             unavailableTile(
-                model.isAllApps ? "Total Active Users" : "Active Users",
+                isPortfolio ? "Total Active Users" : "Active Users",
                 .googleAnalytics,
                 systemImage: "person.2.fill",
                 accentColor: .indigo,
-                action: { model.push(.section(.engagement)) }
+                action: action
             )
         }
     }
 
     @ViewBuilder private var stabilityTile: some View {
+        let action = {
+            model.push(.section(.stability, appID: isPortfolio ? nil : snapshot.app.appleID))
+        }
         if let stability = brief.stability, let rate = stability.crashFreeUsersRate {
             MetricTile(
-                title: model.isAllApps ? "Avg Crash-Free" : "Crash-Free Users",
+                title: isPortfolio ? "Avg Crash-Free" : "Crash-Free Users",
                 value: Format.rate(rate),
                 caption: stability.previousCrashFreeUsersRate.map { "Previous: \(Format.rate($0))" },
                 systemImage: "shield.checkerboard",
                 accentColor: .mint,
-                action: { model.push(.section(.stability)) }
+                action: action
             )
         } else if let issues = brief.stability?.openIssues {
             MetricTile(
@@ -228,37 +248,40 @@ struct OverviewView: View {
                 caption: "Crashlytics",
                 systemImage: "bolt.heart.fill",
                 accentColor: .pink,
-                action: { model.push(.section(.stability)) }
+                action: action
             )
         } else {
             unavailableTile(
-                model.isAllApps ? "Avg Crash-Free" : "Crash-Free Users",
+                isPortfolio ? "Avg Crash-Free" : "Crash-Free Users",
                 .googleAnalytics,
                 systemImage: "shield.checkerboard",
                 accentColor: .mint,
-                action: { model.push(.section(.stability)) }
+                action: action
             )
         }
     }
 
     @ViewBuilder private var reviewsTile: some View {
+        let action = {
+            model.push(.section(.reviews, appID: isPortfolio ? nil : snapshot.app.appleID))
+        }
         if let reviews = brief.reviews {
             MetricTile(
-                title: model.isAllApps ? "Total Reviews" : "New Reviews",
+                title: isPortfolio ? "Total Reviews" : "New Reviews",
                 value: reviews.count.formatted(),
                 change: MetricChange(reviews.count, reviews.previousCount),
                 caption: reviews.averageRating.map { "Average \(Format.number($0))★ · \(reviews.lowRatingCount) rated 1–2★" },
                 systemImage: "star.bubble.fill",
                 accentColor: .orange,
-                action: { model.push(.section(.reviews)) }
+                action: action
             )
         } else {
             unavailableTile(
-                model.isAllApps ? "Total Reviews" : "New Reviews",
+                isPortfolio ? "Total Reviews" : "New Reviews",
                 .appStoreReviews,
                 systemImage: "star.bubble.fill",
                 accentColor: .orange,
-                action: { model.push(.section(.reviews)) }
+                action: action
             )
         }
     }

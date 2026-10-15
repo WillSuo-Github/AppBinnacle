@@ -67,7 +67,7 @@ struct ContentView: View {
             get: {
                 if let last = model.navigationPath.last {
                     switch last {
-                    case .section(let s): return s
+                    case .section(let s, _): return s
                     case .appDetail: return model.selectedSection
                     }
                 }
@@ -85,8 +85,15 @@ struct ContentView: View {
     @ViewBuilder
     private func detailRouteView(_ route: DashboardRoute) -> some View {
         switch route {
-        case .section(let section):
-            DetailView(section: section)
+        case .section(let section, let appID):
+            if let appID, let appSnap = model.loadedSnapshots.first(where: { $0.app.appleID == appID }) ?? SnapshotCache.standard.load(appleID: appID, days: model.rangeDays) {
+                let appBrief = BriefBuilder.make(from: appSnap)
+                dashboardSectionContent(section: section, snapshot: appSnap, brief: appBrief)
+                    .navigationTitle("\(section.title) — \(appSnap.app.displayName)")
+                    .navigationSubtitle("\(appSnap.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(appSnap.range.end.startDate().formatted(date: .abbreviated, time: .omitted))")
+            } else {
+                DetailView(section: section)
+            }
         case .appDetail(let appleID, let appName):
             AppDetailPushedView(appleID: appleID, appName: appName)
         }
@@ -171,7 +178,7 @@ private struct DetailView: View {
             if model.configuration.apps.isEmpty {
                 OnboardingView()
             } else if let snapshot = model.snapshot, let brief = model.brief {
-                content(snapshot: snapshot, brief: brief)
+                dashboardSectionContent(section: section, snapshot: snapshot, brief: brief)
                     .navigationSubtitle(
                         model.isAllApps
                         ? "Portfolio · \(model.configuration.apps.count) Apps · \(snapshot.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(snapshot.range.end.startDate().formatted(date: .abbreviated, time: .omitted))"
@@ -204,18 +211,6 @@ private struct DetailView: View {
             }
         }
     }
-
-    @ViewBuilder
-    private func content(snapshot: DashboardSnapshot, brief: AppBrief) -> some View {
-        switch section {
-        case .overview: OverviewView(snapshot: snapshot, brief: brief)
-        case .acquisition: AcquisitionView(snapshot: snapshot, brief: brief)
-        case .engagement: EngagementView(snapshot: snapshot, brief: brief)
-        case .stability: StabilityView(snapshot: snapshot, brief: brief)
-        case .reviews: ReviewsView(snapshot: snapshot, brief: brief)
-        case .brief: BriefView(snapshot: snapshot, brief: brief)
-        }
-    }
 }
 
 private struct AppDetailPushedView: View {
@@ -238,6 +233,18 @@ private struct AppDetailPushedView: View {
             }
         }
         .navigationTitle(appName)
+    }
+}
+
+@MainActor @ViewBuilder
+func dashboardSectionContent(section: DashboardSection, snapshot: DashboardSnapshot, brief: AppBrief) -> some View {
+    switch section {
+    case .overview: OverviewView(snapshot: snapshot, brief: brief)
+    case .acquisition: AcquisitionView(snapshot: snapshot, brief: brief)
+    case .engagement: EngagementView(snapshot: snapshot, brief: brief)
+    case .stability: StabilityView(snapshot: snapshot, brief: brief)
+    case .reviews: ReviewsView(snapshot: snapshot, brief: brief)
+    case .brief: BriefView(snapshot: snapshot, brief: brief)
     }
 }
 

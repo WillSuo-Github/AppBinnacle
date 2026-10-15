@@ -8,6 +8,10 @@ struct BriefView: View {
     @State private var format = BriefFormat.markdown
     @State private var didCopy = false
 
+    private var isPortfolio: Bool {
+        snapshot.app.appleID == DashboardModel.allAppsID
+    }
+
     var body: some View {
         let text = rendered
 
@@ -22,7 +26,7 @@ struct BriefView: View {
                 .fixedSize()
                 .labelsHidden()
 
-                if model.isAllApps {
+                if isPortfolio {
                     Text("All \(model.configuration.apps.count) Apps Briefing")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -33,7 +37,7 @@ struct BriefView: View {
                 #if os(macOS)
                 Button {
                     let ext = format == .markdown ? "md" : (format == .json ? "json" : "csv")
-                    let title = model.isAllApps ? "AllApps" : snapshot.app.displayName.replacingOccurrences(of: " ", with: "_")
+                    let title = isPortfolio ? "AllApps" : snapshot.app.displayName.replacingOccurrences(of: " ", with: "_")
                     let filename = "AppBinnacle-\(title)-\(snapshot.range.shortLabel).\(ext)"
                     SaveFileDialog.save(filename: filename, content: text)
                 } label: {
@@ -91,7 +95,7 @@ struct BriefView: View {
 
     private var terminalCommand: String {
         let fmt = format.rawValue
-        if model.isAllApps {
+        if isPortfolio {
             return "binnacle brief --days \(snapshot.range.length) --format \(fmt)"
         } else {
             let appIdentifier = snapshot.app.bundleID.isEmpty ? snapshot.app.appleID : snapshot.app.bundleID
@@ -100,7 +104,7 @@ struct BriefView: View {
     }
 
     private var rendered: String {
-        let briefsToRender = model.isAllApps && !model.loadedSnapshots.isEmpty
+        let briefsToRender = isPortfolio && !model.loadedSnapshots.isEmpty
             ? model.loadedSnapshots.map { BriefBuilder.make(from: $0) }
             : [brief]
         return (try? BriefRenderer.render(briefsToRender, format: format)) ?? "The brief could not be rendered."
