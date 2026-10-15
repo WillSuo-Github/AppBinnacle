@@ -43,17 +43,31 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: sectionSelection) {
-                Section("Dashboards") {
+                Section {
                     ForEach(DashboardSection.allCases) { section in
-                        Label(section.title, systemImage: section.systemImage)
-                            .tag(section)
+                        Label {
+                            Text(section.title)
+                                .font(.system(size: 13, weight: .medium))
+                        } icon: {
+                            Image(systemName: section.systemImage)
+                                .font(.system(size: 13, weight: .semibold))
+                                .symbolRenderingMode(.hierarchical)
+                        }
+                        .tag(section)
                     }
+                } header: {
+                    Text("Dashboards")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .textCase(.uppercase)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 260)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         } detail: {
             DetailView(section: DashboardSection(rawValue: storedSection) ?? .overview)
         }
+        .tint(Color.accentColor)
         .toolbar { toolbarContent }
         .task(id: model.selectionKey) {
             await model.loadSelection()
@@ -86,14 +100,30 @@ struct ContentView: View {
         @Bindable var model = model
         ToolbarItemGroup(placement: .primaryAction) {
             if !model.configuration.apps.isEmpty {
-                Picker("App", selection: $model.selectedAppID) {
+                Menu {
                     ForEach(model.configuration.apps) { app in
-                        Text(app.displayName).tag(Optional(app.appleID))
+                        Button {
+                            model.selectedAppID = app.appleID
+                        } label: {
+                            HStack {
+                                Text(app.displayName)
+                                if model.selectedAppID == app.appleID {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "app.fill")
+                            .foregroundStyle(Color.accentColor)
+                        Text(model.selectedApp?.displayName ?? "Select App")
+                            .fontWeight(.medium)
+                            .lineLimit(1)
                     }
                 }
-                .pickerStyle(.menu)
-                .frame(minWidth: 160)
-                .help("Choose the app to show")
+                .menuStyle(.borderedButton)
+                .help("Choose tracked application")
 
                 Picker("Period", selection: $model.rangeDays) {
                     ForEach(DashboardModel.rangeOptions, id: \.self) { days in
@@ -101,7 +131,7 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .help("Days in the period. Each period is compared with the one before it.")
+                .help("Time window (7, 14, 30, or 90 days)")
             }
 
             Button {

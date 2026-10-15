@@ -8,9 +8,10 @@ struct AppBinnacleApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
-                .frame(minWidth: 940, minHeight: 620)
+                .tint(Color.accentColor)
+                .frame(minWidth: 960, minHeight: 640)
         }
-        .defaultSize(width: 1180, height: 800)
+        .defaultSize(width: 1200, height: 820)
         .commands {
             CommandGroup(after: .toolbar) {
                 Button("Refresh Data") {
@@ -24,6 +25,7 @@ struct AppBinnacleApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .tint(Color.accentColor)
         }
     }
 }

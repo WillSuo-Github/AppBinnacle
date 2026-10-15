@@ -10,7 +10,7 @@ struct BriefView: View {
     var body: some View {
         let text = rendered
 
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 Picker("Format", selection: $format) {
                     Text("Markdown").tag(BriefFormat.markdown)
@@ -27,14 +27,13 @@ struct BriefView: View {
                     NSPasteboard.general.setString(text, forType: .string)
                     didCopy = true
                 } label: {
-                    Label(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc")
+                    Label(didCopy ? "Copied to Clipboard" : "Copy for AI", systemImage: didCopy ? "checkmark" : "doc.on.doc")
                 }
+                .buttonStyle(.borderedProminent)
                 .keyboardShortcut("c", modifiers: [.command, .shift])
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-
-            Divider()
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
 
             ScrollView {
                 Text(text)
@@ -43,16 +42,23 @@ struct BriefView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(20)
             }
+            .appleCard(cornerRadius: 14)
+            .padding(.horizontal, 24)
 
-            Divider()
-
-            Text("From Terminal: binnacle brief --app \(snapshot.app.bundleID.isEmpty ? snapshot.app.appleID : snapshot.app.bundleID) --days \(snapshot.range.length)")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
+            HStack(spacing: 8) {
+                Image(systemName: "terminal.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Terminal CLI: binnacle brief --app \(snapshot.app.bundleID.isEmpty ? snapshot.app.appleID : snapshot.app.bundleID) --days \(snapshot.range.length)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 16)
         }
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
         .onChange(of: format) { didCopy = false }
         .onChange(of: brief) { didCopy = false }
     }
