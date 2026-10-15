@@ -16,6 +16,7 @@ struct BriefView: View {
                 Picker("Format", selection: $format) {
                     Text("Markdown").tag(BriefFormat.markdown)
                     Text("JSON").tag(BriefFormat.json)
+                    Text("CSV Table").tag(BriefFormat.csv)
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
@@ -29,12 +30,25 @@ struct BriefView: View {
 
                 Spacer()
 
+                #if os(macOS)
+                Button {
+                    let ext = format == .markdown ? "md" : (format == .json ? "json" : "csv")
+                    let title = model.isAllApps ? "AllApps" : snapshot.app.displayName.replacingOccurrences(of: " ", with: "_")
+                    let filename = "AppBinnacle-\(title)-\(snapshot.range.shortLabel).\(ext)"
+                    SaveFileDialog.save(filename: filename, content: text)
+                } label: {
+                    Label("Export to File…", systemImage: "arrow.down.doc")
+                }
+                .buttonStyle(.bordered)
+                .help("Save report directly to disk as a file")
+                #endif
+
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text, forType: .string)
                     didCopy = true
                 } label: {
-                    Label(didCopy ? "Copied to Clipboard" : "Copy for AI", systemImage: didCopy ? "checkmark" : "doc.on.doc")
+                    Label(didCopy ? "Copied" : "Copy to Clipboard", systemImage: didCopy ? "checkmark" : "doc.on.doc")
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut("c", modifiers: [.command, .shift])
@@ -52,7 +66,7 @@ struct BriefView: View {
             .appleCard(cornerRadius: 14)
             .padding(.horizontal, 24)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 Image(systemName: "terminal.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -60,7 +74,12 @@ struct BriefView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+
                 Spacer()
+
+                Text("\(text.count) characters · ~\(max(1, text.count / 4)) AI tokens")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
@@ -71,11 +90,12 @@ struct BriefView: View {
     }
 
     private var terminalCommand: String {
+        let fmt = format.rawValue
         if model.isAllApps {
-            return "Terminal CLI: binnacle brief --days \(snapshot.range.length)"
+            return "binnacle brief --days \(snapshot.range.length) --format \(fmt)"
         } else {
             let appIdentifier = snapshot.app.bundleID.isEmpty ? snapshot.app.appleID : snapshot.app.bundleID
-            return "Terminal CLI: binnacle brief --app \(appIdentifier) --days \(snapshot.range.length)"
+            return "binnacle brief --app \(appIdentifier) --days \(snapshot.range.length) --format \(fmt)"
         }
     }
 

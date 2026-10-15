@@ -8,7 +8,7 @@ struct BriefCommand: AsyncParsableCommand {
 
     @OptionGroup var report: ReportOptions
 
-    @Option(name: .shortAndLong, help: "Output format: markdown or json.")
+    @Option(name: .shortAndLong, help: "Output format: markdown, json, or csv.")
     var format: BriefFormat = .markdown
 
     mutating func run() async throws {

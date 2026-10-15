@@ -4,15 +4,49 @@ import SwiftUI
 struct AcquisitionView: View {
     let snapshot: DashboardSnapshot
     let brief: AppBrief
+    @State private var chartMode = ChartMode.daily
+
+    enum ChartMode: String, CaseIterable, Identifiable {
+        case daily = "Daily Units"
+        case cumulative = "Cumulative Growth"
+
+        var id: String { rawValue }
+    }
 
     var body: some View {
         if let sales = snapshot.sales, let range = snapshot.salesRange, let acquisition = brief.acquisition {
+            let totalFirstDownloads = sales.total(\.firstDownloads, in: range)
+            let totalRedownloads = sales.total(\.redownloads, in: range)
+            let totalAllInstalls = max(1, totalFirstDownloads + totalRedownloads)
+            let redownloadRate = Double(totalRedownloads) / Double(totalAllInstalls)
+            let conversionRate = totalFirstDownloads > 0 ? (Double(sales.total(\.inAppPurchases, in: range)) / Double(totalFirstDownloads)) : 0
+
             DashboardPage {
-                if !sales.pendingDays.isEmpty {
-                    Label("Apple hasn’t published reports after \(sales.throughDay.startDate().formatted(date: .abbreviated, time: .omitted)) yet, so this page covers \(range.shortLabel).",
-                          systemImage: "clock")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                HStack(alignment: .center) {
+                    if !sales.pendingDays.isEmpty {
+                        Label("Reports published through \(sales.throughDay.startDate().formatted(date: .abbreviated, time: .omitted)), covering \(range.shortLabel).",
+                              systemImage: "clock")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("App Store Sales & Downloads Report", systemImage: "chart.xyaxis.line")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    #if os(macOS)
+                    Button {
+                        let filename = "AppBinnacle-Sales-\(snapshot.app.displayName)-\(range.shortLabel).csv"
+                        SaveFileDialog.save(filename: filename, content: ReportExporter.exportSalesCSV(snapshot: snapshot))
+                    } label: {
+                        Label("Export Sales CSV", systemImage: "arrow.down.doc.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Export daily sales and downloads dataset to CSV")
+                    #endif
                 }
 
                 MetricGrid {
@@ -27,6 +61,7 @@ struct AcquisitionView: View {
                         title: "Redownloads",
                         value: Int(acquisition.redownloads.current).formatted(),
                         change: acquisition.redownloads,
+                        caption: "\(String(format: "%.1f%%", redownloadRate * 100)) of all installs",
                         systemImage: "arrow.counterclockwise.circle.fill",
                         accentColor: .teal
                     )
@@ -34,96 +69,196 @@ struct AcquisitionView: View {
                         title: "In-App Purchases",
                         value: Int(acquisition.inAppPurchases.current).formatted(),
                         change: acquisition.inAppPurchases,
-                        caption: snapshot.app.sku.isEmpty ? "Set the app’s SKU to include these" : nil,
+                        caption: totalFirstDownloads > 0 ? "\(String(format: "%.1f%%", conversionRate * 100)) conversion" : nil,
                         systemImage: "cart.fill",
                         accentColor: .purple
                     )
                     MetricTile(
                         title: "Updates",
                         value: acquisition.updates.formatted(),
+                        caption: "Delivered to devices",
                         systemImage: "arrow.triangle.2.circlepath",
                         accentColor: .indigo
                     )
                 }
 
                 ChartCard(
-                    title: "Downloads per Day",
+                    title: "Downloads & Acquisition Trend",
                     subtitle: range.shortLabel,
                     systemImage: "chart.bar.fill",
                     accentColor: .blue
                 ) {
-                    Chart {
-                        ForEach(sales.days(in: range), id: \.day) { day in
-                            BarMark(x: .value("Day", day.day.startDate(), unit: .day), y: .value("Units", day.firstDownloads))
-                                .foregroundStyle(by: .value("Type", "First downloads"))
-                            BarMark(x: .value("Day", day.day.startDate(), unit: .day), y: .value("Units", day.redownloads))
-                                .foregroundStyle(by: .value("Type", "Redownloads"))
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Picker("Chart Mode", selection: $chartMode) {
+                                ForEach(ChartMode.allCases) { Text($0.rawValue).tag($0) }
+                            }
+                            .pickerStyle(.segmented)
+                            .fixedSize()
+                            .labelsHidden()
+
+                            Spacer()
+                        }
+
+                        let days = sales.days(in: range)
+
+                        switch chartMode {
+                        case .daily:
+                            Chart {
+                                ForEach(days, id: \.day) { day in
+                                    BarMark(x: .value("Day", day.day.startDate(), unit: .day), y: .value("Units", day.firstDownloads))
+                                        .foregroundStyle(by: .value("Type", "First downloads"))
+                                    BarMark(x: .value("Day", day.day.startDate(), unit: .day), y: .value("Units", day.redownloads))
+                                        .foregroundStyle(by: .value("Type", "Redownloads"))
+                                }
+                            }
+                            .chartForegroundStyleScale([
+                                "First downloads": Color.blue,
+                                "Redownloads": Color.teal
+                            ])
+                            .chartXAxis {
+                                AxisMarks(values: .stride(by: .day, count: max(1, range.length / 5))) { _ in
+                                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                                }
+                            }
+                            .chartYAxis {
+                                AxisMarks(position: .trailing) { _ in
+                                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+                                        .foregroundStyle(Color.secondary.opacity(0.15))
+                                    AxisValueLabel()
+                                }
+                            }
+                            .frame(height: 220)
+
+                        case .cumulative:
+                            let cumulativeData = cumulativeSeries(days)
+                            Chart {
+                                ForEach(cumulativeData, id: \.day) { item in
+                                    LineMark(
+                                        x: .value("Day", item.day.startDate(), unit: .day),
+                                        y: .value("Cumulative installs", item.total)
+                                    )
+                                    .foregroundStyle(Color.blue)
+                                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                                    .interpolationMethod(.catmullRom)
+
+                                    AreaMark(
+                                        x: .value("Day", item.day.startDate(), unit: .day),
+                                        y: .value("Cumulative installs", item.total)
+                                    )
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.02)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .interpolationMethod(.catmullRom)
+                                }
+                            }
+                            .chartXAxis {
+                                AxisMarks(values: .stride(by: .day, count: max(1, range.length / 5))) { _ in
+                                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                                }
+                            }
+                            .chartYAxis {
+                                AxisMarks(position: .trailing) { _ in
+                                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+                                        .foregroundStyle(Color.secondary.opacity(0.15))
+                                    AxisValueLabel()
+                                }
+                            }
+                            .frame(height: 220)
                         }
                     }
-                    .chartForegroundStyleScale([
-                        "First downloads": Color.blue,
-                        "Redownloads": Color.teal
-                    ])
-                    .frame(height: 220)
                 }
 
                 HStack(alignment: .top, spacing: 14) {
                     ChartCard(
-                        title: "Proceeds",
+                        title: "Proceeds & In-App Purchases",
                         subtitle: "By currency of proceeds",
                         systemImage: "dollarsign.circle.fill",
                         accentColor: .green
                     ) {
                         if acquisition.proceeds.isEmpty {
-                            VStack(spacing: 6) {
-                                Text("No paid sales in this period.")
+                            VStack(spacing: 8) {
+                                Image(systemName: "creditcard")
+                                    .font(.title3)
+                                    .foregroundStyle(.tertiary)
+                                Text("No paid sales or IAP in this period.")
+                                    .font(.callout)
                                     .foregroundStyle(.secondary)
                             }
-                            .frame(maxWidth: .infinity, minHeight: 120)
+                            .frame(maxWidth: .infinity, minHeight: 140)
                         } else {
-                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                                 GridRow {
                                     Text("Currency")
                                     Text("This period").gridColumnAlignment(.trailing)
                                     Text("Previous").gridColumnAlignment(.trailing)
                                 }
-                                .font(.caption.weight(.medium))
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+
                                 ForEach(acquisition.proceeds, id: \.currency) { row in
                                     GridRow {
-                                        Text(row.currency).fontWeight(.medium)
+                                        Text(row.currency).fontWeight(.semibold)
                                         Text(row.current.formatted(.currency(code: row.currency))).monospacedDigit()
                                         Text(row.previous.formatted(.currency(code: row.currency))).monospacedDigit().foregroundStyle(.secondary)
                                     }
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 6)
                         }
                     }
 
                     ChartCard(
-                        title: "Top Countries",
-                        subtitle: "First downloads",
+                        title: "Top Markets & Geography",
+                        subtitle: "First downloads by country/territory",
                         systemImage: "globe.americas.fill",
                         accentColor: .cyan
                     ) {
                         if acquisition.topCountries.isEmpty {
-                            VStack(spacing: 6) {
-                                Text("No first downloads in this period.")
+                            VStack(spacing: 8) {
+                                Image(systemName: "globe")
+                                    .font(.title3)
+                                    .foregroundStyle(.tertiary)
+                                Text("No downloads recorded in this period.")
+                                    .font(.callout)
                                     .foregroundStyle(.secondary)
                             }
-                            .frame(maxWidth: .infinity, minHeight: 120)
+                            .frame(maxWidth: .infinity, minHeight: 140)
                         } else {
-                            Chart(acquisition.topCountries, id: \.country) { country in
-                                BarMark(x: .value("First downloads", country.firstDownloads), y: .value("Country", Self.countryName(country.country)))
-                                    .foregroundStyle(LinearGradient(colors: [.cyan, .blue], startPoint: .leading, endPoint: .trailing))
-                                    .cornerRadius(3)
-                                    .annotation(position: .trailing) {
-                                        Text(country.firstDownloads.formatted()).font(.caption).foregroundStyle(.secondary)
+                            VStack(spacing: 10) {
+                                ForEach(Array(acquisition.topCountries.prefix(6).enumerated()), id: \.element.country) { index, country in
+                                    HStack(spacing: 8) {
+                                        Text(Self.flag(for: country.country))
+                                            .font(.body)
+                                        Text(Self.countryName(country.country))
+                                            .font(.caption.weight(.medium))
+                                            .lineLimit(1)
+
+                                        Spacer()
+
+                                        let share = totalFirstDownloads > 0 ? (Double(country.firstDownloads) / Double(totalFirstDownloads)) : 0
+                                        ProgressView(value: share)
+                                            .frame(width: 80)
+                                            .tint(Color.cyan)
+
+                                        Text(country.firstDownloads.formatted())
+                                            .font(.caption.weight(.semibold))
+                                            .monospacedDigit()
+                                            .frame(width: 40, alignment: .trailing)
+
+                                        Text(String(format: "%.0f%%", share * 100))
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                            .frame(width: 32, alignment: .trailing)
                                     }
+                                }
                             }
-                            .chartXAxis(.hidden)
-                            .frame(height: max(120, CGFloat(acquisition.topCountries.count) * 36 + 10))
+                            .padding(.vertical, 4)
                         }
                     }
                 }
@@ -140,7 +275,28 @@ struct AcquisitionView: View {
         }
     }
 
+    private func cumulativeSeries(_ days: [SalesDay]) -> [(day: Day, total: Int)] {
+        var running = 0
+        var result: [(day: Day, total: Int)] = []
+        for day in days {
+            running += day.firstDownloads
+            result.append((day: day.day, total: running))
+        }
+        return result
+    }
+
     static func countryName(_ code: String) -> String {
         Locale.current.localizedString(forRegionCode: code) ?? code
+    }
+
+    static func flag(for countryCode: String) -> String {
+        let base: UInt32 = 127397
+        var s = ""
+        for v in countryCode.uppercased().unicodeScalars {
+            if let scalar = UnicodeScalar(base + v.value) {
+                s.unicodeScalars.append(scalar)
+            }
+        }
+        return s.isEmpty ? "🌐" : s
     }
 }

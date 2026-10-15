@@ -107,6 +107,11 @@ struct SnapshotTests {
         let json = try BriefRenderer.render([brief], format: .json)
         let decoded = try JSONCoding.decoder().decode(AppBrief.self, from: Data(json.utf8))
         #expect(decoded == brief)
+
+        let csv = try BriefRenderer.render([brief], format: .csv)
+        #expect(csv.contains("Weather Pal"))
+        #expect(csv.contains("First Downloads"))
+        #expect(csv.contains("14"))
     }
 
     @Test func missingSetupIsReportedPerSource() async throws {

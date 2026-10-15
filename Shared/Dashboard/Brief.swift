@@ -252,6 +252,7 @@ enum BriefBuilder {
 enum BriefFormat: String, CaseIterable, Sendable {
     case markdown
     case json
+    case csv
 }
 
 enum BriefRenderer {
@@ -261,7 +262,59 @@ enum BriefRenderer {
             return briefs.map(markdown).joined(separator: "\n\n---\n\n")
         case .json:
             return briefs.count == 1 ? try JSONCoding.string(briefs[0]) : try JSONCoding.string(briefs)
+        case .csv:
+            return csv(briefs)
         }
+    }
+
+    static func csv(_ briefs: [AppBrief]) -> String {
+        var rows: [[String]] = []
+        rows.append([
+            "App Name", "Apple ID", "Bundle ID", "Period Start", "Period End",
+            "First Downloads", "Prev Downloads", "Download Change %",
+            "Redownloads", "Updates", "In-App Purchases", "Proceeds",
+            "Active Users", "Prev Active Users", "Active Users Change %",
+            "New Users", "Sessions", "Avg Daily Active Users",
+            "Crash-Free Users %", "Prev Crash-Free %", "Open Issues",
+            "New Reviews", "Avg Rating"
+        ])
+
+        for brief in briefs {
+            let acq = brief.acquisition
+            let eng = brief.engagement
+            let stab = brief.stability
+            let rev = brief.reviews
+
+            let proceedsString = acq?.proceeds.map { "\($0.current) \($0.currency)" }.joined(separator: "; ") ?? ""
+
+            rows.append([
+                brief.app.name,
+                brief.app.appleID,
+                brief.app.bundleID,
+                brief.period.start.iso,
+                brief.period.end.iso,
+                acq.map { "\($0.firstDownloads.current)" } ?? "",
+                acq.map { "\($0.firstDownloads.previous)" } ?? "",
+                acq?.firstDownloads.changePercent.map { String(format: "%.1f", $0) } ?? "",
+                acq.map { "\($0.redownloads.current)" } ?? "",
+                acq.map { "\($0.updates)" } ?? "",
+                acq.map { "\($0.inAppPurchases.current)" } ?? "",
+                proceedsString,
+                eng.map { "\($0.activeUsers.current)" } ?? "",
+                eng.map { "\($0.activeUsers.previous)" } ?? "",
+                eng?.activeUsers.changePercent.map { String(format: "%.1f", $0) } ?? "",
+                eng.map { "\($0.newUsers.current)" } ?? "",
+                eng.map { "\($0.sessions.current)" } ?? "",
+                eng.map { String(format: "%.1f", $0.averageDailyActiveUsers) } ?? "",
+                stab?.crashFreeUsersRate.map { String(format: "%.2f%%", $0 * 100) } ?? "",
+                stab?.previousCrashFreeUsersRate.map { String(format: "%.2f%%", $0 * 100) } ?? "",
+                stab?.openIssues.map { "\($0.count)" } ?? "",
+                rev.map { "\($0.count)" } ?? "",
+                rev?.averageRating.map { String(format: "%.2f", $0) } ?? ""
+            ])
+        }
+
+        return ReportExporter.formatCSV(rows)
     }
 
     static func markdown(_ brief: AppBrief) -> String {
