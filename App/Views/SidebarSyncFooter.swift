@@ -6,119 +6,119 @@ struct SidebarSyncFooter: View {
     var body: some View {
         @Bindable var model = model
 
-        VStack(spacing: 0) {
-            Divider()
-                .opacity(0.5)
+        VStack(alignment: .leading, spacing: 9) {
+            // Header with Auto-refresh interval menu + manual Refresh button
+            HStack(alignment: .center, spacing: 6) {
+                HStack(spacing: 5) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                    Text("Data Sync")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                }
 
-            VStack(alignment: .leading, spacing: 10) {
-                // Header with Auto-refresh interval menu + manual Refresh button
-                HStack(alignment: .center, spacing: 6) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
-                        Text("Data Sync")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                    }
+                Spacer(minLength: 2)
 
-                    Spacer(minLength: 0)
-
-                    // Quick Auto-refresh interval menu
-                    Menu {
-                        ForEach(AutoRefreshInterval.allCases) { interval in
-                            Button {
-                                model.autoRefreshInterval = interval
-                            } label: {
-                                HStack {
-                                    Text(interval.title)
-                                    if model.autoRefreshInterval == interval {
-                                        Image(systemName: "checkmark")
-                                    }
+                // Quick Auto-refresh interval menu
+                Menu {
+                    ForEach(AutoRefreshInterval.allCases) { interval in
+                        Button {
+                            model.autoRefreshInterval = interval
+                        } label: {
+                            HStack {
+                                Text(interval.title)
+                                if model.autoRefreshInterval == interval {
+                                    Image(systemName: "checkmark")
                                 }
                             }
                         }
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "timer")
-                                .font(.system(size: 8))
-                            Text(model.autoRefreshInterval.shortLabel)
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 8))
+                        Text(model.autoRefreshInterval.shortLabel)
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2.5)
+                    .background(Color.primary.opacity(0.05), in: Capsule())
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Set automatic background refresh interval (current: \(model.autoRefreshInterval.title))")
+
+                // Manual Refresh button
+                Button {
+                    Task { await model.refresh() }
+                } label: {
+                    HStack(spacing: 3) {
+                        if model.isRefreshing {
+                            ProgressView()
+                                .controlSize(.mini)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
                                 .font(.system(size: 9, weight: .semibold))
                         }
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 3)
-                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        Text(model.isRefreshing ? "Syncing…" : "Refresh")
+                            .font(.system(size: 9, weight: .semibold))
                     }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
-                    .help("Set automatic background refresh interval (current: \(model.autoRefreshInterval.title))")
-
-                    // Manual Refresh button
-                    Button {
-                        Task { await model.refresh() }
-                    } label: {
-                        HStack(spacing: 3) {
-                            if model.isRefreshing {
-                                ProgressView()
-                                    .controlSize(.mini)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 9, weight: .semibold))
-                            }
-                            Text(model.isRefreshing ? "Syncing…" : "Refresh")
-                                .font(.system(size: 9, weight: .semibold))
-                        }
-                        .foregroundStyle(model.isRefreshing ? Color.secondary : Color.primary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
-                    .help("Refresh all telemetry connections (⌘R)")
+                    .foregroundStyle(model.isRefreshing ? Color.secondary : Color.primary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2.5)
+                    .background(Color.primary.opacity(0.06), in: Capsule())
                 }
-
-                // Platform Rows
-                VStack(spacing: 6) {
-                    syncRow(
-                        title: "Sales & Trends",
-                        icon: "apple.logo",
-                        iconColor: .blue,
-                        status: model.snapshot?.status(of: .appStoreSales),
-                        customTime: salesCustomTime
-                    )
-
-                    syncRow(
-                        title: "App Store Reviews",
-                        icon: "star.bubble.fill",
-                        iconColor: .orange,
-                        status: model.snapshot?.status(of: .appStoreReviews),
-                        customTime: nil
-                    )
-
-                    syncRow(
-                        title: "Google Analytics",
-                        icon: "chart.line.uptrend.xyaxis",
-                        iconColor: .indigo,
-                        status: model.snapshot?.status(of: .googleAnalytics),
-                        customTime: nil
-                    )
-
-                    syncRow(
-                        title: "Crashlytics",
-                        icon: "bolt.heart.fill",
-                        iconColor: .pink,
-                        status: model.snapshot?.status(of: .crashlytics),
-                        customTime: nil
-                    )
-                }
+                .buttonStyle(.plain)
+                .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
+                .help("Refresh all telemetry connections (⌘R)")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
+
+            Divider()
+                .opacity(0.4)
+
+            // Platform Rows
+            VStack(spacing: 6) {
+                syncRow(
+                    title: "Sales & Trends",
+                    icon: "apple.logo",
+                    iconColor: .blue,
+                    status: model.snapshot?.status(of: .appStoreSales),
+                    customTime: salesCustomTime
+                )
+
+                syncRow(
+                    title: "App Store Reviews",
+                    icon: "star.bubble.fill",
+                    iconColor: .orange,
+                    status: model.snapshot?.status(of: .appStoreReviews),
+                    customTime: nil
+                )
+
+                syncRow(
+                    title: "Google Analytics",
+                    icon: "chart.line.uptrend.xyaxis",
+                    iconColor: .indigo,
+                    status: model.snapshot?.status(of: .googleAnalytics),
+                    customTime: nil
+                )
+
+                syncRow(
+                    title: "Crashlytics",
+                    icon: "bolt.heart.fill",
+                    iconColor: .pink,
+                    status: model.snapshot?.status(of: .crashlytics),
+                    customTime: nil
+                )
+            }
         }
+        .padding(11)
+        .appleCard(cornerRadius: 12)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 10)
+        .padding(.top, 4)
     }
 
     private var salesCustomTime: String? {
