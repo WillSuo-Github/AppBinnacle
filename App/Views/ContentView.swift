@@ -30,7 +30,10 @@ struct ContentView: View {
                 }
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
+            .safeAreaInset(edge: .bottom) {
+                SidebarSyncFooter()
+            }
+            .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 290)
         } detail: {
             NavigationStack(path: $model.navigationPath) {
                 DetailView(section: model.selectedSection)
@@ -153,18 +156,6 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .help("Time window (7, 14, 30, or 90 days)")
             }
-
-            Button {
-                Task { await model.refresh() }
-            } label: {
-                if model.isRefreshing {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-            }
-            .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
-            .help("Refresh data (⌘R)")
         }
     }
 }

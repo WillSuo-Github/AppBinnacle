@@ -26,6 +26,14 @@ struct SourceStatus: Codable, Equatable, Hashable, Sendable {
     var source: DataSource
     var state: State
     var detail: String?
+    var lastSyncedAt: Date?
+
+    init(source: DataSource, state: State, detail: String? = nil, lastSyncedAt: Date? = nil) {
+        self.source = source
+        self.state = state
+        self.detail = detail
+        self.lastSyncedAt = lastSyncedAt
+    }
 }
 
 /// Everything AppBinnacle knows about one app for one period.
@@ -113,7 +121,7 @@ struct SnapshotService: Sendable {
             var notes: [String] = []
             if series.throughDay < range.end { notes.append("Reports are published through \(series.throughDay.iso).") }
             if app.sku.trimmed.isEmpty { notes.append("Set the app's SKU to include in-app purchases.") }
-            snapshot.sources.append(SourceStatus(source: .appStoreSales, state: .ok, detail: notes.isEmpty ? nil : notes.joined(separator: " ")))
+            snapshot.sources.append(SourceStatus(source: .appStoreSales, state: .ok, detail: notes.isEmpty ? nil : notes.joined(separator: " "), lastSyncedAt: now))
         case .notConfigured(let reason):
             snapshot.sources.append(SourceStatus(source: .appStoreSales, state: .notConfigured, detail: reason))
         case .failure(let reason):
@@ -129,7 +137,7 @@ struct SnapshotService: Sendable {
     private func record<Value>(_ outcome: Outcome<Value>, as source: DataSource, in snapshot: inout DashboardSnapshot) -> Value? {
         switch outcome {
         case .success(let value):
-            snapshot.sources.append(SourceStatus(source: source, state: .ok))
+            snapshot.sources.append(SourceStatus(source: source, state: .ok, lastSyncedAt: now))
             return value
         case .notConfigured(let reason):
             snapshot.sources.append(SourceStatus(source: source, state: .notConfigured, detail: reason))

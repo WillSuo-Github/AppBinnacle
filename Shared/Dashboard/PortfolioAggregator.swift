@@ -112,8 +112,9 @@ enum PortfolioAggregator {
         // 5. Merge Data Sources Status
         for source in DataSource.allCases {
             let statuses = snapshots.compactMap { $0.status(of: source) }
+            let maxSync = statuses.compactMap(\.lastSyncedAt).max() ?? generatedAt
             if statuses.contains(where: { $0.state == .ok }) {
-                portfolio.sources.append(SourceStatus(source: source, state: .ok))
+                portfolio.sources.append(SourceStatus(source: source, state: .ok, lastSyncedAt: maxSync))
             } else if statuses.contains(where: { $0.state == .failed }) {
                 let detail = statuses.first { $0.state == .failed }?.detail
                 portfolio.sources.append(SourceStatus(source: source, state: .failed, detail: detail))
