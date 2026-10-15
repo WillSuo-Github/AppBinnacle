@@ -36,6 +36,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: AppBinnacle
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 AppBinnacle contributors. MIT License."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         COMBINE_HIDPI_IMAGES: YES
   binnacle:
