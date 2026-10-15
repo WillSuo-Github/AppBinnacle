@@ -64,10 +64,25 @@ struct MetricTile: View {
     var higherIsBetter = true
     var systemImage: String? = nil
     var accentColor: Color = .accentColor
+    var action: (() -> Void)? = nil
 
     @State private var isHovered = false
 
     var body: some View {
+        Group {
+            if let action {
+                Button(action: action) {
+                    content
+                }
+                .buttonStyle(.plain)
+            } else {
+                content
+            }
+        }
+        .onHover { isHovered = $0 }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(alignment: .center, spacing: 8) {
@@ -83,6 +98,12 @@ struct MetricTile: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
+                if action != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(isHovered ? accentColor : Color.secondary.opacity(0.35))
+                        .animation(.easeInOut(duration: 0.15), value: isHovered)
+                }
             }
 
             Spacer(minLength: 8)
@@ -119,10 +140,9 @@ struct MetricTile: View {
         .appleCard(cornerRadius: 12)
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(isHovered ? accentColor.opacity(0.35) : Color.clear, lineWidth: 1)
+                .strokeBorder(isHovered ? accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
         }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .onHover { isHovered = $0 }
         .accessibilityElement(children: .combine)
     }
 }
@@ -180,6 +200,8 @@ struct ChartCard<Content: View>: View {
     var subtitle: String?
     var systemImage: String? = nil
     var accentColor: Color = .accentColor
+    var action: (() -> Void)? = nil
+    var actionLabel: String = "View Details"
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -203,6 +225,22 @@ struct ChartCard<Content: View>: View {
                     }
                 }
                 Spacer()
+
+                if let action {
+                    Button(action: action) {
+                        HStack(spacing: 4) {
+                            Text(actionLabel)
+                                .font(.caption.weight(.medium))
+                            Image(systemName: "arrow.right")
+                                .font(.caption2.weight(.bold))
+                        }
+                        .foregroundStyle(accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(accentColor.opacity(0.08), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             content

@@ -1,38 +1,5 @@
 import SwiftUI
 
-enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
-    case overview
-    case acquisition
-    case engagement
-    case stability
-    case reviews
-    case brief
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .overview: return "Overview"
-        case .acquisition: return "Downloads & Revenue"
-        case .engagement: return "Engagement"
-        case .stability: return "Stability"
-        case .reviews: return "Reviews"
-        case .brief: return "AI Brief"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .overview: return "square.grid.2x2"
-        case .acquisition: return "arrow.down.circle"
-        case .engagement: return "person.2"
-        case .stability: return "bolt.heart"
-        case .reviews: return "star.bubble"
-        case .brief: return "text.quote"
-        }
-    }
-}
-
 struct ContentView: View {
     @Environment(DashboardModel.self) private var model
     @SceneStorage("dashboardSection") private var storedSection = DashboardSection.overview.rawValue
@@ -65,12 +32,20 @@ struct ContentView: View {
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         } detail: {
-            DetailView(section: DashboardSection(rawValue: storedSection) ?? .overview)
+            DetailView(section: model.selectedSection)
         }
         .tint(Color.accentColor)
         .toolbar { toolbarContent }
         .task(id: model.selectionKey) {
             await model.loadSelection()
+        }
+        .onAppear {
+            if let restored = DashboardSection(rawValue: storedSection) {
+                model.selectedSection = restored
+            }
+        }
+        .onChange(of: model.selectedSection) { _, newValue in
+            storedSection = newValue.rawValue
         }
         #if DEBUG
         .onAppear(perform: applyDebugLaunchOptions)
@@ -83,6 +58,7 @@ struct ContentView: View {
         let arguments = ProcessInfo.processInfo.arguments
         if let index = arguments.firstIndex(of: "--section"), arguments.indices.contains(index + 1),
            let section = DashboardSection(rawValue: arguments[index + 1]) {
+            model.selectedSection = section
             storedSection = section.rawValue
         }
         if arguments.contains("--show-settings") { openSettings() }
@@ -91,8 +67,9 @@ struct ContentView: View {
 
     private var sectionSelection: Binding<DashboardSection?> {
         Binding(
-            get: { DashboardSection(rawValue: storedSection) ?? .overview },
-            set: { storedSection = ($0 ?? .overview).rawValue })
+            get: { model.selectedSection },
+            set: { if let newSection = $0 { model.selectedSection = newSection } }
+        )
     }
 
     @ToolbarContentBuilder

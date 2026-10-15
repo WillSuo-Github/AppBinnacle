@@ -33,7 +33,9 @@ struct OverviewView: View {
                         title: model.isAllApps ? "Total First Downloads" : "First Downloads",
                         subtitle: range.shortLabel,
                         systemImage: "arrow.down.circle.fill",
-                        accentColor: .blue
+                        accentColor: .blue,
+                        action: { model.selectedSection = .acquisition },
+                        actionLabel: "Downloads & Revenue"
                     ) {
                         let days = sales.days(in: range)
                         let totalDownloads = days.reduce(0) { $0 + $1.firstDownloads }
@@ -82,7 +84,9 @@ struct OverviewView: View {
                         title: model.isAllApps ? "Total Daily Active Users" : "Daily Active Users",
                         subtitle: snapshot.range.shortLabel,
                         systemImage: "person.2.fill",
-                        accentColor: .indigo
+                        accentColor: .indigo,
+                        action: { model.selectedSection = .engagement },
+                        actionLabel: "Engagement"
                     ) {
                         let daily = analytics.daily(in: snapshot.range)
                         Chart(daily, id: \.day) { day in
@@ -136,10 +140,17 @@ struct OverviewView: View {
                 change: acquisition.firstDownloads,
                 caption: acquisition.period == brief.period ? nil : "Through \(acquisition.period.end.startDate().formatted(date: .abbreviated, time: .omitted))",
                 systemImage: "arrow.down.circle.fill",
-                accentColor: .blue
+                accentColor: .blue,
+                action: { model.selectedSection = .acquisition }
             )
         } else {
-            unavailableTile(model.isAllApps ? "Total Downloads" : "First Downloads", .appStoreSales, systemImage: "arrow.down.circle.fill", accentColor: .blue)
+            unavailableTile(
+                model.isAllApps ? "Total Downloads" : "First Downloads",
+                .appStoreSales,
+                systemImage: "arrow.down.circle.fill",
+                accentColor: .blue,
+                action: { model.selectedSection = .acquisition }
+            )
         }
     }
 
@@ -152,7 +163,8 @@ struct OverviewView: View {
                     change: MetricChange(current: top.current.doubleValue, previous: top.previous.doubleValue),
                     caption: acquisition.proceeds.count > 1 ? "+ \(acquisition.proceeds.count - 1) more currencies" : nil,
                     systemImage: "dollarsign.circle.fill",
-                    accentColor: .green
+                    accentColor: .green,
+                    action: { model.selectedSection = .acquisition }
                 )
             } else {
                 MetricTile(
@@ -160,11 +172,18 @@ struct OverviewView: View {
                     value: "None",
                     caption: "No paid sales in this period",
                     systemImage: "dollarsign.circle.fill",
-                    accentColor: .green
+                    accentColor: .green,
+                    action: { model.selectedSection = .acquisition }
                 )
             }
         } else {
-            unavailableTile(model.isAllApps ? "Total Proceeds" : "Proceeds", .appStoreSales, systemImage: "dollarsign.circle.fill", accentColor: .green)
+            unavailableTile(
+                model.isAllApps ? "Total Proceeds" : "Proceeds",
+                .appStoreSales,
+                systemImage: "dollarsign.circle.fill",
+                accentColor: .green,
+                action: { model.selectedSection = .acquisition }
+            )
         }
     }
 
@@ -176,10 +195,17 @@ struct OverviewView: View {
                 change: engagement.activeUsers,
                 caption: "\(Int(engagement.averageDailyActiveUsers.rounded()).formatted())/day avg",
                 systemImage: "person.2.fill",
-                accentColor: .indigo
+                accentColor: .indigo,
+                action: { model.selectedSection = .engagement }
             )
         } else {
-            unavailableTile(model.isAllApps ? "Total Active Users" : "Active Users", .googleAnalytics, systemImage: "person.2.fill", accentColor: .indigo)
+            unavailableTile(
+                model.isAllApps ? "Total Active Users" : "Active Users",
+                .googleAnalytics,
+                systemImage: "person.2.fill",
+                accentColor: .indigo,
+                action: { model.selectedSection = .engagement }
+            )
         }
     }
 
@@ -190,7 +216,8 @@ struct OverviewView: View {
                 value: Format.rate(rate),
                 caption: stability.previousCrashFreeUsersRate.map { "Previous: \(Format.rate($0))" },
                 systemImage: "shield.checkerboard",
-                accentColor: .mint
+                accentColor: .mint,
+                action: { model.selectedSection = .stability }
             )
         } else if let issues = brief.stability?.openIssues {
             MetricTile(
@@ -198,10 +225,17 @@ struct OverviewView: View {
                 value: issues.count.formatted(),
                 caption: "Crashlytics",
                 systemImage: "bolt.heart.fill",
-                accentColor: .pink
+                accentColor: .pink,
+                action: { model.selectedSection = .stability }
             )
         } else {
-            unavailableTile(model.isAllApps ? "Avg Crash-Free" : "Crash-Free Users", .googleAnalytics, systemImage: "shield.checkerboard", accentColor: .mint)
+            unavailableTile(
+                model.isAllApps ? "Avg Crash-Free" : "Crash-Free Users",
+                .googleAnalytics,
+                systemImage: "shield.checkerboard",
+                accentColor: .mint,
+                action: { model.selectedSection = .stability }
+            )
         }
     }
 
@@ -213,21 +247,29 @@ struct OverviewView: View {
                 change: MetricChange(reviews.count, reviews.previousCount),
                 caption: reviews.averageRating.map { "Average \(Format.number($0))★ · \(reviews.lowRatingCount) rated 1–2★" },
                 systemImage: "star.bubble.fill",
-                accentColor: .orange
+                accentColor: .orange,
+                action: { model.selectedSection = .reviews }
             )
         } else {
-            unavailableTile(model.isAllApps ? "Total Reviews" : "New Reviews", .appStoreReviews, systemImage: "star.bubble.fill", accentColor: .orange)
+            unavailableTile(
+                model.isAllApps ? "Total Reviews" : "New Reviews",
+                .appStoreReviews,
+                systemImage: "star.bubble.fill",
+                accentColor: .orange,
+                action: { model.selectedSection = .reviews }
+            )
         }
     }
 
-    private func unavailableTile(_ title: String, _ source: DataSource, systemImage: String, accentColor: Color) -> some View {
+    private func unavailableTile(_ title: String, _ source: DataSource, systemImage: String, accentColor: Color, action: (() -> Void)? = nil) -> some View {
         let status = snapshot.status(of: source)
         return MetricTile(
             title: title,
             value: "—",
             caption: status?.state == .failed ? "\(source.title) didn’t load" : "Connect \(source.title)",
             systemImage: systemImage,
-            accentColor: accentColor
+            accentColor: accentColor,
+            action: action
         )
     }
 }

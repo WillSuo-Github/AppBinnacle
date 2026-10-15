@@ -23,6 +23,8 @@ final class DashboardModel {
         didSet { UserDefaults.standard.set(rangeDays, forKey: DefaultsKey.rangeDays) }
     }
 
+    var selectedSection: DashboardSection = .overview
+
     var isAllApps: Bool {
         selectedAppID == nil || selectedAppID == Self.allAppsID
     }
