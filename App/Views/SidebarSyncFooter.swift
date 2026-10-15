@@ -4,43 +4,76 @@ struct SidebarSyncFooter: View {
     @Environment(DashboardModel.self) private var model
 
     var body: some View {
+        @Bindable var model = model
+
         VStack(spacing: 0) {
             Divider()
                 .opacity(0.5)
 
             VStack(alignment: .leading, spacing: 10) {
-                // Header with Refresh action
-                HStack(alignment: .center) {
+                // Header with Auto-refresh interval menu + manual Refresh button
+                HStack(alignment: .center, spacing: 6) {
                     HStack(spacing: 5) {
                         Image(systemName: "antenna.radiowaves.left.and.right")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(Color.accentColor)
-                        Text("Data Sync Status")
+                        Text("Data Sync")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.secondary)
                             .textCase(.uppercase)
                     }
 
-                    Spacer()
+                    Spacer(minLength: 0)
 
+                    // Quick Auto-refresh interval menu
+                    Menu {
+                        ForEach(AutoRefreshInterval.allCases) { interval in
+                            Button {
+                                model.autoRefreshInterval = interval
+                            } label: {
+                                HStack {
+                                    Text(interval.title)
+                                    if model.autoRefreshInterval == interval {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "timer")
+                                .font(.system(size: 8))
+                            Text(model.autoRefreshInterval.shortLabel)
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .help("Set automatic background refresh interval (current: \(model.autoRefreshInterval.title))")
+
+                    // Manual Refresh button
                     Button {
                         Task { await model.refresh() }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             if model.isRefreshing {
                                 ProgressView()
                                     .controlSize(.mini)
                             } else {
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.system(size: 9, weight: .semibold))
                             }
                             Text(model.isRefreshing ? "Syncing…" : "Refresh")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 9, weight: .semibold))
                         }
                         .foregroundStyle(model.isRefreshing ? Color.secondary : Color.primary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3.5)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(model.configuration.apps.isEmpty || model.isRefreshing)

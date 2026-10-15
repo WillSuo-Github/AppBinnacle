@@ -4,12 +4,63 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     var body: some View {
         TabView {
+            GeneralSettingsView()
+                .tabItem { Label("General", systemImage: "gearshape") }
             AccountsSettingsView()
                 .tabItem { Label("Accounts", systemImage: "key") }
             AppsSettingsView()
                 .tabItem { Label("Apps", systemImage: "square.stack.3d.up") }
         }
         .frame(width: 680, height: 600)
+    }
+}
+
+private struct GeneralSettingsView: View {
+    @Environment(DashboardModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Form {
+            Section {
+                Picker("Sync Interval", selection: $model.autoRefreshInterval) {
+                    ForEach(AutoRefreshInterval.allCases) { interval in
+                        Text(interval.title).tag(interval)
+                    }
+                }
+                .help("How frequently AppBinnacle updates data in the background")
+
+                Toggle("Refresh automatically when waking or activating app", isOn: $model.refreshOnActivation)
+                    .help("Automatically pulls fresh metrics if data is stale when returning to AppBinnacle")
+            } header: {
+                Text("Automatic Background Refresh")
+            } footer: {
+                Text("AppBinnacle periodically syncs App Store Connect and Firebase in the background while complying with Apple and Google API rate limits.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                LabeledContent("Cache Directory") {
+                    Text(BinnaclePaths.caches.path(percentEncoded: false))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                LabeledContent("Config Path") {
+                    Text(model.store.fileURL.path(percentEncoded: false))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            } header: {
+                Text("Data Storage & Cache")
+            } footer: {
+                Text("Private keys and tokens remain encrypted in your macOS Keychain service dev.appbinnacle.credentials.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

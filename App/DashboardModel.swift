@@ -27,6 +27,21 @@ final class DashboardModel {
         didSet { UserDefaults.standard.set(selectedSection.rawValue, forKey: DefaultsKey.selectedSection) }
     }
 
+    var autoRefreshInterval: AutoRefreshInterval = .every30Minutes {
+        didSet {
+            UserDefaults.standard.set(autoRefreshInterval.rawValue, forKey: DefaultsKey.autoRefreshInterval)
+            restartAutoRefreshTimer()
+        }
+    }
+
+    var refreshOnActivation: Bool = true {
+        didSet {
+            UserDefaults.standard.set(refreshOnActivation, forKey: DefaultsKey.refreshOnActivation)
+        }
+    }
+
+    @ObservationIgnored private var autoRefreshTimer: Timer?
+
     var navigationPath: [DashboardRoute] = []
 
     func push(_ route: DashboardRoute) {
@@ -86,8 +101,41 @@ final class DashboardModel {
         if let savedSection, let section = DashboardSection(rawValue: savedSection) {
             selectedSection = section
         }
+        if UserDefaults.standard.object(forKey: DefaultsKey.autoRefreshInterval) != nil {
+            let savedInterval = UserDefaults.standard.integer(forKey: DefaultsKey.autoRefreshInterval)
+            autoRefreshInterval = AutoRefreshInterval(rawValue: savedInterval) ?? .every30Minutes
+        } else {
+            autoRefreshInterval = .every30Minutes
+        }
+        if UserDefaults.standard.object(forKey: DefaultsKey.refreshOnActivation) != nil {
+            refreshOnActivation = UserDefaults.standard.bool(forKey: DefaultsKey.refreshOnActivation)
+        } else {
+            refreshOnActivation = true
+        }
         settingsMessage = loadError
         refreshSecretState()
+        startAutoRefreshTimer()
+    }
+
+    func startAutoRefreshTimer() {
+        autoRefreshTimer?.invalidate()
+        autoRefreshTimer = nil
+
+        guard autoRefreshInterval != .off else { return }
+
+        let interval = autoRefreshInterval.timeInterval
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, !self.isRefreshing else { return }
+                await self.refresh()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        autoRefreshTimer = timer
+    }
+
+    func restartAutoRefreshTimer() {
+        startAutoRefreshTimer()
     }
 
     var selectedApp: TrackedApp? {
@@ -334,5 +382,7 @@ final class DashboardModel {
         static let selectedApp = "selectedAppID"
         static let rangeDays = "rangeDays"
         static let selectedSection = "selectedSection"
+        static let autoRefreshInterval = "autoRefreshInterval"
+        static let refreshOnActivation = "refreshOnActivation"
     }
 }

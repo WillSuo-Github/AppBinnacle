@@ -47,6 +47,18 @@ struct ContentView: View {
         .task(id: model.selectionKey) {
             await model.loadSelection()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task {
+                guard model.refreshOnActivation, !model.isRefreshing else { return }
+                let threshold = model.autoRefreshInterval == .off ? 1800.0 : min(1800.0, model.autoRefreshInterval.timeInterval)
+                let isStale = model.snapshot.map {
+                    $0.generatedAt.timeIntervalSinceNow < -threshold
+                } ?? true
+                if isStale {
+                    await model.refresh()
+                }
+            }
+        }
         #if DEBUG
         .onAppear(perform: applyDebugLaunchOptions)
         #endif
