@@ -4,6 +4,7 @@ import SwiftUI
 struct OverviewView: View {
     let snapshot: DashboardSnapshot
     let brief: AppBrief
+    @Environment(DashboardModel.self) private var model
 
     var body: some View {
         DashboardPage {
@@ -15,12 +16,21 @@ struct OverviewView: View {
                 reviewsTile
             }
 
+            if model.isAllApps && !model.configuration.apps.isEmpty {
+                PortfolioMatrixCard(
+                    snapshots: model.loadedSnapshots,
+                    apps: model.configuration.apps
+                ) { appleID in
+                    model.selectedAppID = appleID
+                }
+            }
+
             HighlightsCard(highlights: brief.highlights, periodLength: snapshot.range.length)
 
             HStack(alignment: .top, spacing: 14) {
                 if let sales = snapshot.sales, let range = snapshot.salesRange {
                     ChartCard(
-                        title: "First Downloads",
+                        title: model.isAllApps ? "Total First Downloads" : "First Downloads",
                         subtitle: range.shortLabel,
                         systemImage: "arrow.down.circle.fill",
                         accentColor: .blue
@@ -69,7 +79,7 @@ struct OverviewView: View {
 
                 if let analytics = snapshot.analytics {
                     ChartCard(
-                        title: "Daily Active Users",
+                        title: model.isAllApps ? "Total Daily Active Users" : "Daily Active Users",
                         subtitle: snapshot.range.shortLabel,
                         systemImage: "person.2.fill",
                         accentColor: .indigo
@@ -121,7 +131,7 @@ struct OverviewView: View {
     @ViewBuilder private var downloadsTile: some View {
         if let acquisition = brief.acquisition {
             MetricTile(
-                title: "First Downloads",
+                title: model.isAllApps ? "Total Downloads" : "First Downloads",
                 value: Int(acquisition.firstDownloads.current).formatted(),
                 change: acquisition.firstDownloads,
                 caption: acquisition.period == brief.period ? nil : "Through \(acquisition.period.end.startDate().formatted(date: .abbreviated, time: .omitted))",
@@ -129,7 +139,7 @@ struct OverviewView: View {
                 accentColor: .blue
             )
         } else {
-            unavailableTile("First Downloads", .appStoreSales, systemImage: "arrow.down.circle.fill", accentColor: .blue)
+            unavailableTile(model.isAllApps ? "Total Downloads" : "First Downloads", .appStoreSales, systemImage: "arrow.down.circle.fill", accentColor: .blue)
         }
     }
 
@@ -137,7 +147,7 @@ struct OverviewView: View {
         if let acquisition = brief.acquisition {
             if let top = acquisition.proceeds.first {
                 MetricTile(
-                    title: "Proceeds",
+                    title: model.isAllApps ? "Total Proceeds" : "Proceeds",
                     value: top.current.formatted(.currency(code: top.currency)),
                     change: MetricChange(current: top.current.doubleValue, previous: top.previous.doubleValue),
                     caption: acquisition.proceeds.count > 1 ? "+ \(acquisition.proceeds.count - 1) more currencies" : nil,
@@ -146,7 +156,7 @@ struct OverviewView: View {
                 )
             } else {
                 MetricTile(
-                    title: "Proceeds",
+                    title: model.isAllApps ? "Total Proceeds" : "Proceeds",
                     value: "None",
                     caption: "No paid sales in this period",
                     systemImage: "dollarsign.circle.fill",
@@ -154,14 +164,14 @@ struct OverviewView: View {
                 )
             }
         } else {
-            unavailableTile("Proceeds", .appStoreSales, systemImage: "dollarsign.circle.fill", accentColor: .green)
+            unavailableTile(model.isAllApps ? "Total Proceeds" : "Proceeds", .appStoreSales, systemImage: "dollarsign.circle.fill", accentColor: .green)
         }
     }
 
     @ViewBuilder private var activeUsersTile: some View {
         if let engagement = brief.engagement {
             MetricTile(
-                title: "Active Users",
+                title: model.isAllApps ? "Total Active Users" : "Active Users",
                 value: Int(engagement.activeUsers.current).formatted(),
                 change: engagement.activeUsers,
                 caption: "\(Int(engagement.averageDailyActiveUsers.rounded()).formatted())/day avg",
@@ -169,14 +179,14 @@ struct OverviewView: View {
                 accentColor: .indigo
             )
         } else {
-            unavailableTile("Active Users", .googleAnalytics, systemImage: "person.2.fill", accentColor: .indigo)
+            unavailableTile(model.isAllApps ? "Total Active Users" : "Active Users", .googleAnalytics, systemImage: "person.2.fill", accentColor: .indigo)
         }
     }
 
     @ViewBuilder private var stabilityTile: some View {
         if let stability = brief.stability, let rate = stability.crashFreeUsersRate {
             MetricTile(
-                title: "Crash-Free Users",
+                title: model.isAllApps ? "Avg Crash-Free" : "Crash-Free Users",
                 value: Format.rate(rate),
                 caption: stability.previousCrashFreeUsersRate.map { "Previous: \(Format.rate($0))" },
                 systemImage: "shield.checkerboard",
@@ -191,14 +201,14 @@ struct OverviewView: View {
                 accentColor: .pink
             )
         } else {
-            unavailableTile("Crash-Free Users", .googleAnalytics, systemImage: "shield.checkerboard", accentColor: .mint)
+            unavailableTile(model.isAllApps ? "Avg Crash-Free" : "Crash-Free Users", .googleAnalytics, systemImage: "shield.checkerboard", accentColor: .mint)
         }
     }
 
     @ViewBuilder private var reviewsTile: some View {
         if let reviews = brief.reviews {
             MetricTile(
-                title: "New Reviews",
+                title: model.isAllApps ? "Total Reviews" : "New Reviews",
                 value: reviews.count.formatted(),
                 change: MetricChange(reviews.count, reviews.previousCount),
                 caption: reviews.averageRating.map { "Average \(Format.number($0))★ · \(reviews.lowRatingCount) rated 1–2★" },
@@ -206,7 +216,7 @@ struct OverviewView: View {
                 accentColor: .orange
             )
         } else {
-            unavailableTile("New Reviews", .appStoreReviews, systemImage: "star.bubble.fill", accentColor: .orange)
+            unavailableTile(model.isAllApps ? "Total Reviews" : "New Reviews", .appStoreReviews, systemImage: "star.bubble.fill", accentColor: .orange)
         }
     }
 
@@ -219,6 +229,172 @@ struct OverviewView: View {
             systemImage: systemImage,
             accentColor: accentColor
         )
+    }
+}
+
+struct PortfolioMatrixCard: View {
+    let snapshots: [DashboardSnapshot]
+    let apps: [TrackedApp]
+    let onSelectApp: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 24, height: 24)
+                        .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                    Text("All Products Matrix (\(apps.count))")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
+
+                Spacer()
+
+                Text("Click any app to view its dedicated dashboard")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(spacing: 6) {
+                ForEach(apps) { app in
+                    let snap = snapshots.first { $0.app.appleID == app.appleID }
+                    AppPortfolioRow(app: app, snapshot: snap) {
+                        onSelectApp(app.appleID)
+                    }
+                    if app.appleID != apps.last?.appleID {
+                        Divider()
+                            .opacity(0.5)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .appleCard(cornerRadius: 14)
+    }
+}
+
+struct AppPortfolioRow: View {
+    let app: TrackedApp
+    let snapshot: DashboardSnapshot?
+    let onSelect: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                // App glyph
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(LinearGradient(colors: [.blue.opacity(0.85), .indigo], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "app.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(app.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(app.bundleID.isEmpty ? "Apple ID: \(app.appleID)" : app.bundleID)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(minWidth: 150, alignment: .leading)
+
+                Spacer(minLength: 8)
+
+                // First Downloads
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Downloads")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    let dls = snapshot?.sales?.total(\.firstDownloads, in: snapshot?.salesRange ?? snapshot?.range ?? DayRange(ending: Day.yesterday(), length: 7)) ?? 0
+                    Text(dls.formatted())
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(dls > 0 ? Color.primary : Color.secondary)
+                }
+                .frame(width: 75, alignment: .trailing)
+
+                // Proceeds
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Proceeds")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    let proceeds = snapshot?.sales?.proceeds(in: snapshot?.salesRange ?? snapshot?.range ?? DayRange(ending: Day.yesterday(), length: 7)) ?? [:]
+                    let top = proceeds.first
+                    Text(top != nil ? top!.value.formatted(.currency(code: top!.key)) : "$0.00")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(top != nil && top!.value > 0 ? Color.green : Color.secondary)
+                }
+                .frame(width: 85, alignment: .trailing)
+
+                // Active Users (GA4)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Active Users")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    let users = snapshot?.analytics?.current.activeUsers ?? 0
+                    Text(snapshot?.analytics != nil ? users.formatted() : "—")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(users > 0 ? Color.indigo : Color.secondary)
+                }
+                .frame(width: 80, alignment: .trailing)
+
+                // Stability
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Crash-Free")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    if let rate = snapshot?.analytics?.current.crashFreeUsersRate {
+                        Text(Format.rate(rate))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(rate >= 0.99 ? Color.mint : Color.red)
+                    } else {
+                        Text("—")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 75, alignment: .trailing)
+
+                // Reviews
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Reviews")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    let reviewCount = snapshot?.reviews?.count ?? 0
+                    Text(reviewCount.formatted())
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(reviewCount > 0 ? Color.orange : Color.secondary)
+                }
+                .frame(width: 60, alignment: .trailing)
+
+                // Navigation action arrow
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.primary.opacity(0.04) : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 

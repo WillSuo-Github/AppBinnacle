@@ -6,6 +6,7 @@ import SwiftUI
 @Observable
 final class DashboardModel {
     static let rangeOptions = [7, 14, 30, 90]
+    static let allAppsID = "all"
 
     var configuration: BinnacleConfiguration {
         didSet {
@@ -22,8 +23,13 @@ final class DashboardModel {
         didSet { UserDefaults.standard.set(rangeDays, forKey: DefaultsKey.rangeDays) }
     }
 
+    var isAllApps: Bool {
+        selectedAppID == nil || selectedAppID == Self.allAppsID
+    }
+
     private(set) var snapshot: DashboardSnapshot?
     private(set) var brief: AppBrief?
+    private(set) var loadedSnapshots: [DashboardSnapshot] = []
     private(set) var isRefreshing = false
     private(set) var refreshError: String?
     var settingsMessage: String?
@@ -52,36 +58,80 @@ final class DashboardModel {
         let savedRange = UserDefaults.standard.integer(forKey: DefaultsKey.rangeDays)
         rangeDays = Self.rangeOptions.contains(savedRange) ? savedRange : 7
         let savedApp = UserDefaults.standard.string(forKey: DefaultsKey.selectedApp)
-        selectedAppID = loaded.apps.contains { $0.appleID == savedApp } ? savedApp : loaded.apps.first?.appleID
+        if savedApp == Self.allAppsID || savedApp == nil {
+            selectedAppID = Self.allAppsID
+        } else {
+            selectedAppID = loaded.apps.contains { $0.appleID == savedApp } ? savedApp : Self.allAppsID
+        }
         settingsMessage = loadError
         refreshSecretState()
     }
 
     var selectedApp: TrackedApp? {
-        configuration.apps.first { $0.appleID == selectedAppID }
+        isAllApps ? nil : configuration.apps.first { $0.appleID == selectedAppID }
     }
 
     /// Changes whenever the dashboard should load different data.
-    var selectionKey: String { "\(selectedAppID ?? "none")-\(rangeDays)" }
+    var selectionKey: String { "\(selectedAppID ?? Self.allAppsID)-\(rangeDays)" }
 
     func loadSelection() async {
+        if isAllApps {
+            await loadAllAppsSelection()
+            return
+        }
         guard let app = selectedApp else {
             snapshot = nil
             brief = nil
+            loadedSnapshots = []
             return
         }
         if let cached = snapshotCache.load(appleID: app.appleID, days: rangeDays) {
             apply(cached)
+            loadedSnapshots = [cached]
         } else {
             snapshot = nil
             brief = nil
+            loadedSnapshots = []
         }
         let isStale = snapshot.map { $0.generatedAt.timeIntervalSinceNow < -3600 || $0.range.end < Day.yesterday() } ?? true
         if isStale { await refresh() }
     }
 
+    private func loadAllAppsSelection() async {
+        var cachedList: [DashboardSnapshot] = []
+        var hasMissingOrStale = false
+
+        for app in configuration.apps {
+            if let cached = snapshotCache.load(appleID: app.appleID, days: rangeDays) {
+                cachedList.append(cached)
+                if cached.generatedAt.timeIntervalSinceNow < -3600 || cached.range.end < Day.yesterday() {
+                    hasMissingOrStale = true
+                }
+            } else {
+                hasMissingOrStale = true
+            }
+        }
+
+        if !cachedList.isEmpty {
+            loadedSnapshots = cachedList
+            let portfolio = PortfolioAggregator.aggregate(
+                snapshots: cachedList,
+                range: DayRange(ending: Day.yesterday(), length: rangeDays),
+                apps: configuration.apps
+            )
+            apply(portfolio)
+        } else {
+            snapshot = nil
+            brief = nil
+            loadedSnapshots = []
+        }
+
+        if hasMissingOrStale || cachedList.isEmpty {
+            await refresh()
+        }
+    }
+
     func refresh() async {
-        guard let app = selectedApp else { return }
         refreshGeneration += 1
         let generation = refreshGeneration
         isRefreshing = true
@@ -90,15 +140,36 @@ final class DashboardModel {
         let configuration = configuration
         let days = rangeDays
         let credentials = await resolveCredentials(configuration)
+        let appsToFetch = isAllApps ? configuration.apps : (selectedApp.map { [$0] } ?? [])
+
+        guard !appsToFetch.isEmpty else {
+            isRefreshing = false
+            return
+        }
+
         let snapshots = await SnapshotService(configuration: configuration, credentials: credentials)
-            .snapshots(for: [app], days: days)
+            .snapshots(for: appsToFetch, days: days)
 
         guard generation == refreshGeneration else { return }
         isRefreshing = false
-        if let snapshot = snapshots.first {
-            apply(snapshot)
-            snapshotCache.save(snapshot)
+
+        for s in snapshots {
+            snapshotCache.save(s)
         }
+
+        if isAllApps {
+            loadedSnapshots = snapshots
+            let portfolio = PortfolioAggregator.aggregate(
+                snapshots: snapshots,
+                range: DayRange(ending: Day.yesterday(), length: days),
+                apps: configuration.apps
+            )
+            apply(portfolio)
+        } else if let first = snapshots.first {
+            loadedSnapshots = [first]
+            apply(first)
+        }
+
         if !credentials.problems.isEmpty {
             refreshError = credentials.problems.joined(separator: "\n")
         }
@@ -156,7 +227,7 @@ final class DashboardModel {
         do {
             let apps = try await AppStoreConnectClient(credentials: asc).apps()
             let added = configuration.mergeApps(apps)
-            if selectedAppID == nil { selectedAppID = configuration.apps.first?.appleID }
+            if selectedAppID == nil { selectedAppID = Self.allAppsID }
             settingsMessage = "Found \(apps.count) apps in App Store Connect (\(added) new)."
         } catch {
             settingsMessage = error.localizedDescription

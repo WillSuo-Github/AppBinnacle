@@ -18,7 +18,7 @@ struct AppBinnacleApp: App {
                     Task { await model.refresh() }
                 }
                 .keyboardShortcut("r", modifiers: .command)
-                .disabled(model.selectedApp == nil || model.isRefreshing)
+                .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
             }
         }
 

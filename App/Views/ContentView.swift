@@ -101,6 +101,19 @@ struct ContentView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             if !model.configuration.apps.isEmpty {
                 Menu {
+                    Button {
+                        model.selectedAppID = DashboardModel.allAppsID
+                    } label: {
+                        HStack {
+                            Label("All Apps (\(model.configuration.apps.count))", systemImage: "square.stack.3d.up.fill")
+                            if model.isAllApps {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Divider()
+
                     ForEach(model.configuration.apps) { app in
                         Button {
                             model.selectedAppID = app.appleID
@@ -115,15 +128,15 @@ struct ContentView: View {
                     }
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "app.fill")
+                        Image(systemName: model.isAllApps ? "square.stack.3d.up.fill" : "app.fill")
                             .foregroundStyle(Color.accentColor)
-                        Text(model.selectedApp?.displayName ?? "Select App")
+                        Text(model.isAllApps ? "All Apps (\(model.configuration.apps.count))" : (model.selectedApp?.displayName ?? "Select App"))
                             .fontWeight(.medium)
                             .lineLimit(1)
                     }
                 }
                 .menuStyle(.borderedButton)
-                .help("Choose tracked application")
+                .help("Choose tracked application or view all")
 
                 Picker("Period", selection: $model.rangeDays) {
                     ForEach(DashboardModel.rangeOptions, id: \.self) { days in
@@ -143,7 +156,7 @@ struct ContentView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
             }
-            .disabled(model.selectedApp == nil || model.isRefreshing)
+            .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
             .help("Refresh data (⌘R)")
         }
     }
@@ -159,15 +172,19 @@ private struct DetailView: View {
                 OnboardingView()
             } else if let snapshot = model.snapshot, let brief = model.brief {
                 content(snapshot: snapshot, brief: brief)
-                    .navigationSubtitle("\(snapshot.app.displayName) · \(snapshot.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(snapshot.range.end.startDate().formatted(date: .abbreviated, time: .omitted))")
+                    .navigationSubtitle(
+                        model.isAllApps
+                        ? "Portfolio · \(model.configuration.apps.count) Apps · \(snapshot.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(snapshot.range.end.startDate().formatted(date: .abbreviated, time: .omitted))"
+                        : "\(snapshot.app.displayName) · \(snapshot.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(snapshot.range.end.startDate().formatted(date: .abbreviated, time: .omitted))"
+                    )
             } else if model.isRefreshing {
-                ProgressView("Loading \(model.selectedApp?.displayName ?? "data")…")
+                ProgressView(model.isAllApps ? "Loading all apps data…" : "Loading \(model.selectedApp?.displayName ?? "data")…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ContentUnavailableView {
                     Label("No Data Yet", systemImage: "chart.bar.xaxis")
                 } description: {
-                    Text("Refresh to load the latest numbers for \(model.selectedApp?.displayName ?? "this app").")
+                    Text("Refresh to load the latest numbers for \(model.isAllApps ? "all apps" : (model.selectedApp?.displayName ?? "this app")).")
                 } actions: {
                     Button("Refresh") { Task { await model.refresh() } }
                 }

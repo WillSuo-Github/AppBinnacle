@@ -147,4 +147,33 @@ struct SnapshotTests {
         #expect(snapshot.status(of: .googleAnalytics)?.detail?.contains("Invalid JWT Signature.") == true)
         #expect(BriefBuilder.make(from: snapshot).highlights.last == "Could not load: Google Analytics, Firebase Crashlytics. See Data sources.")
     }
+
+    @Test func portfolioAggregatesMultipleSnapshots() async throws {
+        let app1 = Fixtures.weatherPal
+        var app2 = Fixtures.weatherPal
+        app2.appleID = "9999999999"
+        app2.name = "Tide Tracker"
+        app2.bundleID = "com.example.tide"
+
+        let service = Self.service(transport: Self.backend())
+        let snapshots = await service.snapshots(for: [app1, app2], days: 7)
+        #expect(snapshots.count == 2)
+
+        let portfolio = PortfolioAggregator.aggregate(
+            snapshots: snapshots,
+            range: snapshots[0].range,
+            apps: [app1, app2]
+        )
+
+        #expect(portfolio.app.appleID == "all")
+        #expect(portfolio.app.name.contains("2"))
+        #expect(portfolio.sales != nil)
+        let dls = portfolio.sales?.total(\.firstDownloads, in: portfolio.range) ?? 0
+        let app1Dls = snapshots[0].sales?.total(\.firstDownloads, in: snapshots[0].range) ?? 0
+        let app2Dls = snapshots[1].sales?.total(\.firstDownloads, in: snapshots[1].range) ?? 0
+        #expect(dls == app1Dls + app2Dls)
+
+        let brief = BriefBuilder.make(from: portfolio)
+        #expect(brief.acquisition?.firstDownloads.current == Double(app1Dls + app2Dls))
+    }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 struct BriefView: View {
     let snapshot: DashboardSnapshot
     let brief: AppBrief
+    @Environment(DashboardModel.self) private var model
     @State private var format = BriefFormat.markdown
     @State private var didCopy = false
 
@@ -19,6 +20,12 @@ struct BriefView: View {
                 .pickerStyle(.segmented)
                 .fixedSize()
                 .labelsHidden()
+
+                if model.isAllApps {
+                    Text("All \(model.configuration.apps.count) Apps Briefing")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
@@ -49,7 +56,7 @@ struct BriefView: View {
                 Image(systemName: "terminal.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Terminal CLI: binnacle brief --app \(snapshot.app.bundleID.isEmpty ? snapshot.app.appleID : snapshot.app.bundleID) --days \(snapshot.range.length)")
+                Text(terminalCommand)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
@@ -63,7 +70,19 @@ struct BriefView: View {
         .onChange(of: brief) { didCopy = false }
     }
 
+    private var terminalCommand: String {
+        if model.isAllApps {
+            return "Terminal CLI: binnacle brief --days \(snapshot.range.length)"
+        } else {
+            let appIdentifier = snapshot.app.bundleID.isEmpty ? snapshot.app.appleID : snapshot.app.bundleID
+            return "Terminal CLI: binnacle brief --app \(appIdentifier) --days \(snapshot.range.length)"
+        }
+    }
+
     private var rendered: String {
-        (try? BriefRenderer.render([brief], format: format)) ?? "The brief could not be rendered."
+        let briefsToRender = model.isAllApps && !model.loadedSnapshots.isEmpty
+            ? model.loadedSnapshots.map { BriefBuilder.make(from: $0) }
+            : [brief]
+        return (try? BriefRenderer.render(briefsToRender, format: format)) ?? "The brief could not be rendered."
     }
 }
