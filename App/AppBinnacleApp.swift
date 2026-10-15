@@ -20,6 +20,14 @@ struct AppBinnacleApp: App {
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
             }
+
+            CommandGroup(after: .sidebar) {
+                Button("Back") {
+                    model.pop()
+                }
+                .keyboardShortcut("[", modifiers: .command)
+                .disabled(model.navigationPath.isEmpty)
+            }
         }
 
         Settings {

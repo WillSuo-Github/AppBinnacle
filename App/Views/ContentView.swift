@@ -96,23 +96,6 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         @Bindable var model = model
 
-        ToolbarItem(placement: .navigation) {
-            if !model.navigationPath.isEmpty {
-                Button {
-                    model.pop()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.backward")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text(backButtonTitle)
-                            .font(.system(size: 13, weight: .regular))
-                    }
-                }
-                .help("Back to \(backButtonTitle) (⌘[)")
-                .keyboardShortcut("[", modifiers: .command)
-            }
-        }
-
         ToolbarItemGroup(placement: .primaryAction) {
             if !model.configuration.apps.isEmpty {
                 Menu {
@@ -176,19 +159,6 @@ struct ContentView: View {
             .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
             .help("Refresh data (⌘R)")
         }
-    }
-
-    private var backButtonTitle: String {
-        if model.navigationPath.count == 1 {
-            return model.selectedSection.title
-        } else if model.navigationPath.count >= 2 {
-            let previous = model.navigationPath[model.navigationPath.count - 2]
-            switch previous {
-            case .section(let s): return s.title
-            case .appDetail(_, let name): return name
-            }
-        }
-        return "Back"
     }
 }
 
