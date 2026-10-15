@@ -21,7 +21,9 @@ struct OverviewView: View {
                     snapshots: model.loadedSnapshots,
                     apps: model.configuration.apps
                 ) { appleID in
-                    model.selectedAppID = appleID
+                    if let app = model.configuration.apps.first(where: { $0.appleID == appleID }) {
+                        model.push(.appDetail(appleID: app.appleID, appName: app.displayName))
+                    }
                 }
             }
 
@@ -34,7 +36,7 @@ struct OverviewView: View {
                         subtitle: range.shortLabel,
                         systemImage: "arrow.down.circle.fill",
                         accentColor: .blue,
-                        action: { model.selectedSection = .acquisition },
+                        action: { model.push(.section(.acquisition)) },
                         actionLabel: "Downloads & Revenue"
                     ) {
                         let days = sales.days(in: range)
@@ -85,7 +87,7 @@ struct OverviewView: View {
                         subtitle: snapshot.range.shortLabel,
                         systemImage: "person.2.fill",
                         accentColor: .indigo,
-                        action: { model.selectedSection = .engagement },
+                        action: { model.push(.section(.engagement)) },
                         actionLabel: "Engagement"
                     ) {
                         let daily = analytics.daily(in: snapshot.range)
@@ -141,7 +143,7 @@ struct OverviewView: View {
                 caption: acquisition.period == brief.period ? nil : "Through \(acquisition.period.end.startDate().formatted(date: .abbreviated, time: .omitted))",
                 systemImage: "arrow.down.circle.fill",
                 accentColor: .blue,
-                action: { model.selectedSection = .acquisition }
+                action: { model.push(.section(.acquisition)) }
             )
         } else {
             unavailableTile(
@@ -149,7 +151,7 @@ struct OverviewView: View {
                 .appStoreSales,
                 systemImage: "arrow.down.circle.fill",
                 accentColor: .blue,
-                action: { model.selectedSection = .acquisition }
+                action: { model.push(.section(.acquisition)) }
             )
         }
     }
@@ -164,7 +166,7 @@ struct OverviewView: View {
                     caption: acquisition.proceeds.count > 1 ? "+ \(acquisition.proceeds.count - 1) more currencies" : nil,
                     systemImage: "dollarsign.circle.fill",
                     accentColor: .green,
-                    action: { model.selectedSection = .acquisition }
+                    action: { model.push(.section(.acquisition)) }
                 )
             } else {
                 MetricTile(
@@ -173,7 +175,7 @@ struct OverviewView: View {
                     caption: "No paid sales in this period",
                     systemImage: "dollarsign.circle.fill",
                     accentColor: .green,
-                    action: { model.selectedSection = .acquisition }
+                    action: { model.push(.section(.acquisition)) }
                 )
             }
         } else {
@@ -182,7 +184,7 @@ struct OverviewView: View {
                 .appStoreSales,
                 systemImage: "dollarsign.circle.fill",
                 accentColor: .green,
-                action: { model.selectedSection = .acquisition }
+                action: { model.push(.section(.acquisition)) }
             )
         }
     }
@@ -196,7 +198,7 @@ struct OverviewView: View {
                 caption: "\(Int(engagement.averageDailyActiveUsers.rounded()).formatted())/day avg",
                 systemImage: "person.2.fill",
                 accentColor: .indigo,
-                action: { model.selectedSection = .engagement }
+                action: { model.push(.section(.engagement)) }
             )
         } else {
             unavailableTile(
@@ -204,7 +206,7 @@ struct OverviewView: View {
                 .googleAnalytics,
                 systemImage: "person.2.fill",
                 accentColor: .indigo,
-                action: { model.selectedSection = .engagement }
+                action: { model.push(.section(.engagement)) }
             )
         }
     }
@@ -217,7 +219,7 @@ struct OverviewView: View {
                 caption: stability.previousCrashFreeUsersRate.map { "Previous: \(Format.rate($0))" },
                 systemImage: "shield.checkerboard",
                 accentColor: .mint,
-                action: { model.selectedSection = .stability }
+                action: { model.push(.section(.stability)) }
             )
         } else if let issues = brief.stability?.openIssues {
             MetricTile(
@@ -226,7 +228,7 @@ struct OverviewView: View {
                 caption: "Crashlytics",
                 systemImage: "bolt.heart.fill",
                 accentColor: .pink,
-                action: { model.selectedSection = .stability }
+                action: { model.push(.section(.stability)) }
             )
         } else {
             unavailableTile(
@@ -234,7 +236,7 @@ struct OverviewView: View {
                 .googleAnalytics,
                 systemImage: "shield.checkerboard",
                 accentColor: .mint,
-                action: { model.selectedSection = .stability }
+                action: { model.push(.section(.stability)) }
             )
         }
     }
@@ -248,7 +250,7 @@ struct OverviewView: View {
                 caption: reviews.averageRating.map { "Average \(Format.number($0))★ · \(reviews.lowRatingCount) rated 1–2★" },
                 systemImage: "star.bubble.fill",
                 accentColor: .orange,
-                action: { model.selectedSection = .reviews }
+                action: { model.push(.section(.reviews)) }
             )
         } else {
             unavailableTile(
@@ -256,7 +258,7 @@ struct OverviewView: View {
                 .appStoreReviews,
                 systemImage: "star.bubble.fill",
                 accentColor: .orange,
-                action: { model.selectedSection = .reviews }
+                action: { model.push(.section(.reviews)) }
             )
         }
     }

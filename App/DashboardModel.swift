@@ -23,7 +23,24 @@ final class DashboardModel {
         didSet { UserDefaults.standard.set(rangeDays, forKey: DefaultsKey.rangeDays) }
     }
 
-    var selectedSection: DashboardSection = .overview
+    var selectedSection: DashboardSection = .overview {
+        didSet { UserDefaults.standard.set(selectedSection.rawValue, forKey: DefaultsKey.selectedSection) }
+    }
+
+    var navigationPath: [DashboardRoute] = []
+
+    func push(_ route: DashboardRoute) {
+        navigationPath.append(route)
+    }
+
+    func pop() {
+        guard !navigationPath.isEmpty else { return }
+        navigationPath.removeLast()
+    }
+
+    func popToRoot() {
+        navigationPath.removeAll()
+    }
 
     var isAllApps: Bool {
         selectedAppID == nil || selectedAppID == Self.allAppsID
@@ -64,6 +81,10 @@ final class DashboardModel {
             selectedAppID = Self.allAppsID
         } else {
             selectedAppID = loaded.apps.contains { $0.appleID == savedApp } ? savedApp : Self.allAppsID
+        }
+        let savedSection = UserDefaults.standard.string(forKey: DefaultsKey.selectedSection)
+        if let savedSection, let section = DashboardSection(rawValue: savedSection) {
+            selectedSection = section
         }
         settingsMessage = loadError
         refreshSecretState()
@@ -312,5 +333,6 @@ final class DashboardModel {
     private enum DefaultsKey {
         static let selectedApp = "selectedAppID"
         static let rangeDays = "rangeDays"
+        static let selectedSection = "selectedSection"
     }
 }

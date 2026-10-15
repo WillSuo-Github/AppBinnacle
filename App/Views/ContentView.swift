@@ -2,12 +2,12 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(DashboardModel.self) private var model
-    @SceneStorage("dashboardSection") private var storedSection = DashboardSection.overview.rawValue
     #if DEBUG
     @Environment(\.openSettings) private var openSettings
     #endif
 
     var body: some View {
+        @Bindable var model = model
         NavigationSplitView {
             List(selection: sectionSelection) {
                 Section {
@@ -32,20 +32,17 @@ struct ContentView: View {
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         } detail: {
-            DetailView(section: model.selectedSection)
+            NavigationStack(path: $model.navigationPath) {
+                DetailView(section: model.selectedSection)
+                    .navigationDestination(for: DashboardRoute.self) { route in
+                        detailRouteView(route)
+                    }
+            }
         }
         .tint(Color.accentColor)
         .toolbar { toolbarContent }
         .task(id: model.selectionKey) {
             await model.loadSelection()
-        }
-        .onAppear {
-            if let restored = DashboardSection(rawValue: storedSection) {
-                model.selectedSection = restored
-            }
-        }
-        .onChange(of: model.selectedSection) { _, newValue in
-            storedSection = newValue.rawValue
         }
         #if DEBUG
         .onAppear(perform: applyDebugLaunchOptions)
@@ -58,8 +55,8 @@ struct ContentView: View {
         let arguments = ProcessInfo.processInfo.arguments
         if let index = arguments.firstIndex(of: "--section"), arguments.indices.contains(index + 1),
            let section = DashboardSection(rawValue: arguments[index + 1]) {
+            model.navigationPath.removeAll()
             model.selectedSection = section
-            storedSection = section.rawValue
         }
         if arguments.contains("--show-settings") { openSettings() }
     }
@@ -67,18 +64,60 @@ struct ContentView: View {
 
     private var sectionSelection: Binding<DashboardSection?> {
         Binding(
-            get: { model.selectedSection },
-            set: { if let newSection = $0 { model.selectedSection = newSection } }
+            get: {
+                if let last = model.navigationPath.last {
+                    switch last {
+                    case .section(let s): return s
+                    case .appDetail: return model.selectedSection
+                    }
+                }
+                return model.selectedSection
+            },
+            set: {
+                if let newSection = $0 {
+                    model.navigationPath.removeAll()
+                    model.selectedSection = newSection
+                }
+            }
         )
+    }
+
+    @ViewBuilder
+    private func detailRouteView(_ route: DashboardRoute) -> some View {
+        switch route {
+        case .section(let section):
+            DetailView(section: section)
+        case .appDetail(let appleID, let appName):
+            AppDetailPushedView(appleID: appleID, appName: appName)
+        }
     }
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         @Bindable var model = model
+
+        ToolbarItem(placement: .navigation) {
+            if !model.navigationPath.isEmpty {
+                Button {
+                    model.pop()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.backward")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(backButtonTitle)
+                            .font(.system(size: 13, weight: .regular))
+                    }
+                }
+                .help("Back to \(backButtonTitle) (⌘[)")
+                .keyboardShortcut("[", modifiers: .command)
+            }
+        }
+
         ToolbarItemGroup(placement: .primaryAction) {
             if !model.configuration.apps.isEmpty {
                 Menu {
                     Button {
+                        model.navigationPath.removeAll()
                         model.selectedAppID = DashboardModel.allAppsID
                     } label: {
                         HStack {
@@ -93,6 +132,7 @@ struct ContentView: View {
 
                     ForEach(model.configuration.apps) { app in
                         Button {
+                            model.navigationPath.removeAll()
                             model.selectedAppID = app.appleID
                         } label: {
                             HStack {
@@ -136,6 +176,19 @@ struct ContentView: View {
             .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
             .help("Refresh data (⌘R)")
         }
+    }
+
+    private var backButtonTitle: String {
+        if model.navigationPath.count == 1 {
+            return model.selectedSection.title
+        } else if model.navigationPath.count >= 2 {
+            let previous = model.navigationPath[model.navigationPath.count - 2]
+            switch previous {
+            case .section(let s): return s.title
+            case .appDetail(_, let name): return name
+            }
+        }
+        return "Back"
     }
 }
 
@@ -192,6 +245,29 @@ private struct DetailView: View {
         case .reviews: ReviewsView(snapshot: snapshot, brief: brief)
         case .brief: BriefView(snapshot: snapshot, brief: brief)
         }
+    }
+}
+
+private struct AppDetailPushedView: View {
+    let appleID: String
+    let appName: String
+    @Environment(DashboardModel.self) private var model
+
+    var body: some View {
+        let snapshot = model.loadedSnapshots.first { $0.app.appleID == appleID }
+            ?? SnapshotCache.standard.load(appleID: appleID, days: model.rangeDays)
+
+        Group {
+            if let snapshot {
+                let brief = BriefBuilder.make(from: snapshot)
+                OverviewView(snapshot: snapshot, brief: brief)
+                    .navigationSubtitle("\(snapshot.app.displayName) · \(snapshot.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(snapshot.range.end.startDate().formatted(date: .abbreviated, time: .omitted))")
+            } else {
+                ProgressView("Loading \(appName)…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .navigationTitle(appName)
     }
 }
 
