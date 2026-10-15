@@ -270,7 +270,7 @@ enum BriefRenderer {
     static func csv(_ briefs: [AppBrief]) -> String {
         var rows: [[String]] = []
         rows.append([
-            "App Name", "Apple ID", "Bundle ID", "Period Start", "Period End",
+            "App Name", "Apple ID", "Bundle ID", "Period Start", "Period End", "Generated At",
             "First Downloads", "Prev Downloads", "Download Change %",
             "Redownloads", "Updates", "In-App Purchases", "Proceeds",
             "Active Users", "Prev Active Users", "Active Users Change %",
@@ -293,6 +293,7 @@ enum BriefRenderer {
                 brief.app.bundleID,
                 brief.period.start.iso,
                 brief.period.end.iso,
+                brief.generatedAt.ISO8601Format(),
                 acq.map { "\($0.firstDownloads.current)" } ?? "",
                 acq.map { "\($0.firstDownloads.previous)" } ?? "",
                 acq?.firstDownloads.changePercent.map { String(format: "%.1f", $0) } ?? "",
@@ -322,7 +323,7 @@ enum BriefRenderer {
         lines.append("# \(brief.app.name) — \(brief.period.start.iso) to \(brief.period.end.iso)")
         var identity = ["Apple ID \(brief.app.appleID)"]
         if !brief.app.bundleID.isEmpty { identity.insert(brief.app.bundleID, at: 0) }
-        lines.append("\(identity.joined(separator: " · ")) · compared with \(brief.comparison.start.iso) to \(brief.comparison.end.iso)")
+        lines.append("\(identity.joined(separator: " · ")) · compared with \(brief.comparison.start.iso) to \(brief.comparison.end.iso) · generated \(brief.generatedAt.ISO8601Format())")
 
         lines.append("")
         lines.append("## Highlights")
