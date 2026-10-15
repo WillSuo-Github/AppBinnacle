@@ -51,25 +51,22 @@ struct SidebarSyncFooter: View {
                 .fixedSize()
                 .help("Set automatic background refresh interval (current: \(model.autoRefreshInterval.title))")
 
-                // Manual Refresh button
+                // Manual Refresh button (Larger, icon-only)
                 Button {
                     Task { await model.refresh() }
                 } label: {
-                    HStack(spacing: 3) {
+                    ZStack {
                         if model.isRefreshing {
                             ProgressView()
-                                .controlSize(.mini)
+                                .controlSize(.small)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.primary)
                         }
-                        Text(model.isRefreshing ? "Syncing…" : "Refresh")
-                            .font(.system(size: 9, weight: .semibold))
                     }
-                    .foregroundStyle(model.isRefreshing ? Color.secondary : Color.primary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2.5)
-                    .background(Color.primary.opacity(0.06), in: Capsule())
+                    .frame(width: 24, height: 24)
+                    .background(Color.primary.opacity(0.06), in: Circle())
                 }
                 .buttonStyle(.plain)
                 .disabled(model.configuration.apps.isEmpty || model.isRefreshing)
