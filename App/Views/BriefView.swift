@@ -5,6 +5,7 @@ struct BriefView: View {
     let snapshot: DashboardSnapshot
     let brief: AppBrief
     @Environment(DashboardModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
     @State private var format = BriefFormat.markdown
     @State private var didCopy = false
 
@@ -36,10 +37,7 @@ struct BriefView: View {
 
                 #if os(macOS)
                 Button {
-                    let ext = format == .markdown ? "md" : (format == .json ? "json" : "csv")
-                    let title = isPortfolio ? "AllApps" : snapshot.app.displayName.replacingOccurrences(of: " ", with: "_")
-                    let filename = "AppBinnacle-\(title)-\(snapshot.range.shortLabel).\(ext)"
-                    SaveFileDialog.save(filename: filename, content: text)
+                    exportReport()
                 } label: {
                     Label("Export to File…", systemImage: "arrow.down.doc")
                 }
@@ -48,9 +46,7 @@ struct BriefView: View {
                 #endif
 
                 Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(text, forType: .string)
-                    didCopy = true
+                    copyReport()
                 } label: {
                     Label(didCopy ? "Copied" : "Copy to Clipboard", systemImage: didCopy ? "checkmark" : "doc.on.doc")
                 }
@@ -63,13 +59,21 @@ struct BriefView: View {
             CurrencyConversionNote()
                 .padding(.horizontal, 24)
 
-            ScrollView {
-                Text(text)
-                    .font(.system(.callout, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(20)
-            }
+            SelectableReportText(text: text, menuItems: [
+                .action("Copy Report", symbol: "doc.on.doc", perform: copyReport),
+                .action("Export Report…", symbol: "arrow.down.doc", perform: exportReport),
+                .submenu("Format", items: BriefFormat.allCases.map { choice in
+                    .action(choice == .csv ? "CSV Table" : (choice == .json ? "JSON" : "Markdown"), symbol: "doc.text", selected: choice == format) {
+                        format = choice
+                    }
+                }),
+                .action("Copy CLI Command", symbol: "terminal") { Clipboard.copy(terminalCommand) },
+                .separator,
+                .action("Refresh Data", symbol: "arrow.clockwise", enabled: !model.isRefreshing && !model.configuration.apps.isEmpty) {
+                    Task { await model.refresh() }
+                },
+                .action("Settings…", symbol: "gearshape") { openSettings() }
+            ])
             .appleCard(cornerRadius: 14)
             .padding(.horizontal, 24)
 
@@ -81,6 +85,9 @@ struct BriefView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+                    .contextMenu {
+                        CopyMenuItem(title: "Copy CLI Command", text: terminalCommand)
+                    }
 
                 Spacer()
 
@@ -94,6 +101,17 @@ struct BriefView: View {
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
         .onChange(of: format) { didCopy = false }
         .onChange(of: brief) { didCopy = false }
+    }
+
+    private func copyReport() {
+        Clipboard.copy(rendered)
+        didCopy = true
+    }
+
+    private func exportReport() {
+        let ext = format == .markdown ? "md" : (format == .json ? "json" : "csv")
+        let title = isPortfolio ? "AllApps" : snapshot.app.displayName.replacingOccurrences(of: " ", with: "_")
+        SaveFileDialog.save(filename: "AppBinnacle-\(title)-\(snapshot.range.shortLabel).\(ext)", content: rendered)
     }
 
     private var terminalCommand: String {

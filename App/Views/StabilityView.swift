@@ -161,6 +161,13 @@ struct StabilityView: View {
                                             .foregroundStyle(rate < 0.99 ? Color.red : Color.primary)
                                         healthBadge(rate)
                                     }
+                                    .contextMenu {
+                                        CopyMenuItem(title: "Copy Version", text: version.version)
+                                        CopyMenuItem(
+                                            title: "Copy Version Metrics",
+                                            text: "Version: \(version.version)\nActive users: \(version.activeUsers)\nAdoption: \(String(format: "%.1f%%", share * 100))\nCrash-affected: \(version.crashAffectedUsers)\nCrash-free: \(Format.rate(version.crashFreeUsersRate))"
+                                        )
+                                    }
                                 }
                             }
                             .padding(.vertical, 4)
@@ -215,6 +222,13 @@ struct StabilityView: View {
                         }
                     }
                 }
+            }
+            .contextMenu {
+                Picker("Issue Filter", selection: $issueFilter) {
+                    ForEach(IssueFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Divider()
+                ReportMenuItems(context: DashboardReportContext(snapshot: snapshot, section: .stability))
             }
         } else {
             SourceUnavailableView(status: snapshot.status(of: .googleAnalytics), source: .googleAnalytics)
@@ -281,6 +295,19 @@ private struct IssueRow: View {
                 }
                 .help("Open in the Firebase console")
             }
+        }
+        .contentShape(Rectangle())
+        .contextMenu {
+            if let link = issue.consoleURL.flatMap(URL.init(string:)) {
+                Link(destination: link) {
+                    Label("Open in Firebase Console", systemImage: "arrow.up.forward.square")
+                }
+                CopyMenuItem(title: "Copy Console Link", text: link.absoluteString)
+                Divider()
+            }
+            CopyMenuItem(title: "Copy Issue Details", text: "\(issue.title)\n\(issue.subtitle)\n\(issue.errorType) · \(issue.events) events · \(issue.impactedUsers) users\nID: \(issue.id)")
+            CopyMenuItem(title: "Copy Issue ID", text: issue.id)
+            CopyMenuItem(title: "Copy Issue Title", text: issue.title)
         }
     }
 

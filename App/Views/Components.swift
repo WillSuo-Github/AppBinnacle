@@ -80,6 +80,26 @@ struct MetricTile: View {
             }
         }
         .onHover { isHovered = $0 }
+        .contextMenu {
+            if let action {
+                Button("View Details", systemImage: "arrow.right", action: action)
+                Divider()
+            }
+            CopyMenuItem(title: "Copy Value", text: value)
+            CopyMenuItem(title: "Copy Metric Summary", text: summary)
+        }
+    }
+
+    private var summary: String {
+        var lines = ["\(title): \(value)"]
+        if let change {
+            lines.append("Previous: \(Format.number(change.previous))")
+            if let percent = change.changePercent {
+                lines.append("Change: \(String(format: "%+.1f%%", percent))")
+            }
+        }
+        if let caption { lines.append(caption) }
+        return lines.joined(separator: "\n")
     }
 
     private var content: some View {
@@ -196,6 +216,7 @@ struct MetricGrid<Content: View>: View {
 }
 
 struct ChartCard<Content: View>: View {
+    @Environment(\.dashboardReportContext) private var reportContext
     var title: String
     var subtitle: String?
     var systemImage: String? = nil
@@ -248,6 +269,13 @@ struct ChartCard<Content: View>: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .appleCard(cornerRadius: 14)
+        .contextMenu {
+            if let action {
+                Button(actionLabel, systemImage: "arrow.right", action: action)
+                Divider()
+            }
+            if let reportContext { ReportMenuItems(context: reportContext) }
+        }
     }
 }
 
@@ -277,6 +305,9 @@ struct SourceUnavailableView: View {
         .frame(maxWidth: .infinity, minHeight: 280)
         .padding(24)
         .appleCard(cornerRadius: 14)
+        .contextMenu {
+            SourceMenuItems(title: source.title, details: status?.detail ?? title)
+        }
     }
 
     private var title: String {
@@ -341,6 +372,13 @@ struct SourcePill: View {
         .background(statusColor.opacity(0.08), in: Capsule())
         .overlay(Capsule().strokeBorder(statusColor.opacity(0.2), lineWidth: 0.75))
         .help(status.detail ?? "\(status.source.title): \(status.state.rawValue)")
+        .contextMenu {
+            SourceMenuItems(
+                title: status.source.title,
+                details: [status.state.rawValue, status.detail, status.lastSyncedAt?.formatted(date: .abbreviated, time: .standard)]
+                    .compactMap { $0 }.joined(separator: "\n")
+            )
+        }
     }
 
     private var statusColor: Color {

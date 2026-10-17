@@ -172,6 +172,13 @@ struct AcquisitionView: View {
                             .frame(height: 220)
                         }
                     }
+                    .contextMenu {
+                        Picker("Chart Mode", selection: $chartMode) {
+                            ForEach(ChartMode.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Divider()
+                        ReportMenuItems(context: DashboardReportContext(snapshot: snapshot, section: .acquisition))
+                    }
                 }
 
                 HStack(alignment: .top, spacing: 14) {
@@ -196,6 +203,10 @@ struct AcquisitionView: View {
                             CurrencyConversionNote()
                         }
                         .padding(.vertical, 6)
+                        .contextMenu {
+                            CopyMenuItem(title: "Copy Total Proceeds", text: total.formattedCurrent)
+                            CopyMenuItem(title: "Copy Proceeds Comparison", text: "Current: \(total.formattedCurrent)\nPrevious: \(total.formattedPrevious)")
+                        }
                     }
 
                     ChartCard(
@@ -240,6 +251,11 @@ struct AcquisitionView: View {
                                             .font(.caption2)
                                             .foregroundStyle(.tertiary)
                                             .frame(width: 32, alignment: .trailing)
+                                    }
+                                    .contentShape(Rectangle())
+                                    .contextMenu {
+                                        CopyMenuItem(title: "Copy Country Name", text: Self.countryName(country.country))
+                                        CopyMenuItem(title: "Copy Market Metrics", text: "\(Self.countryName(country.country)) (\(country.country)): \(country.firstDownloads) first downloads")
                                     }
                                 }
                             }

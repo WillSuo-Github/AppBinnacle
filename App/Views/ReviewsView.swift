@@ -137,6 +137,11 @@ struct ReviewsView: View {
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(Color.yellow)
                                     }
+                                    .contentShape(Rectangle())
+                                    .contextMenu {
+                                        CopyMenuItem(title: "Copy Territory", text: AcquisitionView.countryName(item.code))
+                                        CopyMenuItem(title: "Copy Territory Metrics", text: "\(AcquisitionView.countryName(item.code)): \(item.count) reviews · \(String(format: "%.1f", item.avgRating))★")
+                                    }
                                 }
                             }
                             .padding(.vertical, 4)
@@ -171,10 +176,27 @@ struct ReviewsView: View {
                 } else {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(visible) { review in
-                            ReviewRow(review: review, isInPeriod: snapshot.range.contains(review.day))
+                            ReviewRow(review: review, isInPeriod: snapshot.range.contains(review.day)) {
+                                filter = review.rating <= 2 ? .critical : (review.rating == 3 ? .neutral : .positive)
+                            }
                         }
                     }
                 }
+            }
+            .contextMenu {
+                Picker("Rating Filter", selection: $filter) {
+                    ForEach(RatingFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Button("Export Filtered Reviews CSV…", systemImage: "line.3.horizontal.decrease") {
+                    var filtered = snapshot
+                    filtered.reviews = reviews.filter { filter.includes($0.rating) }
+                    SaveFileDialog.save(
+                        filename: "AppBinnacle-Reviews-\(snapshot.app.displayName)-Filtered.csv",
+                        content: ReportExporter.exportReviewsCSV(snapshot: filtered)
+                    )
+                }
+                Divider()
+                ReportMenuItems(context: DashboardReportContext(snapshot: snapshot, section: .reviews))
             }
         } else {
             SourceUnavailableView(status: snapshot.status(of: .appStoreReviews), source: .appStoreReviews)
@@ -200,6 +222,7 @@ struct ReviewsView: View {
 private struct ReviewRow: View {
     let review: CustomerReview
     let isInPeriod: Bool
+    let onFilterRating: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -233,5 +256,12 @@ private struct ReviewRow: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .appleCard(cornerRadius: 12)
+        .contextMenu {
+            CopyMenuItem(title: "Copy Full Review", text: "\(review.rating)★ · \(review.title)\n\(review.body)\n\(review.reviewerNickname) · \(review.territory) · \(review.day.iso)")
+            CopyMenuItem(title: "Copy Review Text", text: review.body)
+            CopyMenuItem(title: "Copy Review Title", text: review.title)
+            Divider()
+            Button("Show This Rating Group", systemImage: "line.3.horizontal.decrease", action: onFilterRating)
+        }
     }
 }

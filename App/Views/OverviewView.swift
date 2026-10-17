@@ -456,6 +456,10 @@ struct AppPortfolioRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .contextMenu {
+            Button("View App Overview", systemImage: "square.grid.2x2", action: onSelect)
+            AppMenuItems(app: app)
+        }
     }
 }
 
@@ -508,5 +512,13 @@ struct HighlightsCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .appleCard(cornerRadius: 12)
+        .contextMenu {
+            CopyMenuItem(
+                title: "Copy Highlights",
+                text: highlights.isEmpty
+                    ? "All metrics remained stable with no anomalous drops or spikes over the past \(periodLength) days."
+                    : highlights.joined(separator: "\n")
+            )
+        }
     }
 }

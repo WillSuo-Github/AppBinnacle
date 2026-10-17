@@ -86,6 +86,9 @@ private struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                .contextMenu {
+                    FileMenuItems(url: URL(filePath: embeddedPath))
+                }
 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -118,12 +121,14 @@ private struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                .contextMenu { FileMenuItems(url: BinnaclePaths.caches) }
                 LabeledContent("Config Path") {
                     Text(model.store.fileURL.path(percentEncoded: false))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                .contextMenu { FileMenuItems(url: model.store.fileURL) }
             } header: {
                 Text("Data Storage & Cache")
             } footer: {
@@ -247,6 +252,10 @@ private struct DiagnosticRow: View {
                     .textSelection(.enabled)
             }
         }
+        .contentShape(Rectangle())
+        .contextMenu {
+            CopyMenuItem(title: "Copy Diagnostic Result", text: "\(result.title)\n\(result.detail)")
+        }
     }
 
     private var symbol: String {
@@ -271,6 +280,7 @@ private struct AppsSettingsView: View {
     @State private var selection: String?
     @State private var isAddingApp = false
     @State private var newAppleID = ""
+    @State private var appToRemove: TrackedApp?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -284,9 +294,24 @@ private struct AppsSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .tag(app.appleID)
+                        .contextMenu {
+                            Button("Edit App", systemImage: "pencil") { selection = app.appleID }
+                            AppMenuItems(app: app, showsDashboardLinks: false)
+                            Divider()
+                            Button("Stop Tracking…", systemImage: "minus.circle", role: .destructive) {
+                                appToRemove = app
+                            }
+                        }
                     }
                 }
                 .listStyle(.sidebar)
+                .contextMenu {
+                    Button("Import from App Store Connect", systemImage: "square.and.arrow.down") {
+                        Task { await model.importAppsFromAppStoreConnect() }
+                    }
+                    .disabled(model.isImportingApps)
+                    Button("Add by Apple ID…", systemImage: "plus") { isAddingApp = true }
+                }
 
                 Divider()
 
@@ -304,8 +329,7 @@ private struct AppsSettingsView: View {
                     .help("Add apps")
 
                     Button {
-                        if let selection { model.removeApp(appleID: selection) }
-                        selection = model.configuration.apps.first?.appleID
+                        appToRemove = model.configuration.apps.first { $0.appleID == selection }
                     } label: {
                         Image(systemName: "minus")
                     }
@@ -339,6 +363,19 @@ private struct AppsSettingsView: View {
         }
         .onAppear {
             if selection == nil { selection = model.selectedAppID ?? model.configuration.apps.first?.appleID }
+        }
+        .alert("Stop Tracking \(appToRemove?.displayName ?? "App")?", isPresented: Binding(
+            get: { appToRemove != nil },
+            set: { if !$0 { appToRemove = nil } }
+        ), presenting: appToRemove) { app in
+            Button("Stop Tracking", role: .destructive) {
+                model.removeApp(appleID: app.appleID)
+                if selection == app.appleID { selection = model.configuration.apps.first?.appleID }
+                appToRemove = nil
+            }
+            Button("Cancel", role: .cancel) { appToRemove = nil }
+        } message: { _ in
+            Text("This removes the app and its analytics mapping from AppBinnacle. Your App Store app and remote data are unaffected.")
         }
         .sheet(isPresented: $isAddingApp) {
             VStack(alignment: .leading, spacing: 12) {
@@ -378,6 +415,7 @@ private struct AppEditor: View {
                 TextField("Name", text: $app.name)
                 TextField("Bundle ID", text: $app.bundleID)
                 LabeledContent("Apple ID", value: app.appleID)
+                    .contextMenu { CopyMenuItem(title: "Copy Apple ID", text: app.appleID) }
                 TextField("SKU", text: $app.sku, prompt: Text("Links in-app purchases to this app"))
             }
             Section {

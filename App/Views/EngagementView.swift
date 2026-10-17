@@ -161,6 +161,13 @@ struct EngagementView: View {
                             .frame(height: 220)
                         }
                     }
+                    .contextMenu {
+                        Picker("View Mode", selection: $chartMode) {
+                            ForEach(EngagementChartMode.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Divider()
+                        ReportMenuItems(context: DashboardReportContext(snapshot: snapshot, section: .engagement))
+                    }
                 }
 
                 HStack(alignment: .top, spacing: 14) {

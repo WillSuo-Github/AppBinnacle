@@ -116,6 +116,15 @@ struct SidebarSyncFooter: View {
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .padding(.top, 4)
+        .contextMenu {
+            RefreshMenuItems()
+            Divider()
+            Picker("Sync Interval", selection: $model.autoRefreshInterval) {
+                ForEach(AutoRefreshInterval.allCases) { interval in
+                    Text(interval.title).tag(interval)
+                }
+            }
+        }
     }
 
     private var salesCustomTime: String? {
@@ -157,6 +166,10 @@ struct SidebarSyncFooter: View {
                 .lineLimit(1)
         }
         .help(tooltip(title: title, status: status))
+        .contentShape(Rectangle())
+        .contextMenu {
+            SourceMenuItems(title: title, details: tooltip(title: title, status: status))
+        }
     }
 
     private func formatTime(status: SourceStatus?, customTime: String?) -> String {

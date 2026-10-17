@@ -21,6 +21,16 @@ struct ContentView: View {
                                 .symbolRenderingMode(.hierarchical)
                         }
                         .tag(section)
+                        .contextMenu {
+                            Button {
+                                model.navigationPath.removeAll()
+                                model.selectedSection = section
+                            } label: {
+                                Label("Open \(section.title)", systemImage: section.systemImage)
+                            }
+                            Divider()
+                            RefreshMenuItems()
+                        }
                     }
                 } header: {
                     Text("Dashboards")
@@ -186,6 +196,7 @@ private struct DetailView: View {
             } else if model.isRefreshing {
                 ProgressView(model.isAllApps ? "Loading all apps data…" : "Loading \(model.selectedApp?.displayName ?? "data")…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contextMenu { RefreshMenuItems() }
             } else {
                 ContentUnavailableView {
                     Label("No Data Yet", systemImage: "chart.bar.xaxis")
@@ -194,6 +205,7 @@ private struct DetailView: View {
                 } actions: {
                     Button("Refresh") { Task { await model.refresh() } }
                 }
+                .contextMenu { RefreshMenuItems() }
             }
         }
         .navigationTitle(section.title)
@@ -224,7 +236,7 @@ private struct AppDetailPushedView: View {
         Group {
             if let snapshot {
                 let brief = BriefBuilder.make(from: snapshot)
-                OverviewView(snapshot: snapshot, brief: brief)
+                dashboardSectionContent(section: .overview, snapshot: snapshot, brief: brief)
                     .navigationSubtitle("\(snapshot.app.displayName) · \(snapshot.range.start.startDate().formatted(date: .abbreviated, time: .omitted)) – \(snapshot.range.end.startDate().formatted(date: .abbreviated, time: .omitted))")
             } else {
                 ProgressView("Loading \(appName)…")
@@ -237,14 +249,20 @@ private struct AppDetailPushedView: View {
 
 @MainActor @ViewBuilder
 func dashboardSectionContent(section: DashboardSection, snapshot: DashboardSnapshot, brief: AppBrief) -> some View {
-    switch section {
-    case .overview: OverviewView(snapshot: snapshot, brief: brief)
-    case .acquisition: AcquisitionView(snapshot: snapshot, brief: brief)
-    case .engagement: EngagementView(snapshot: snapshot, brief: brief)
-    case .stability: StabilityView(snapshot: snapshot, brief: brief)
-    case .reviews: ReviewsView(snapshot: snapshot, brief: brief)
-    case .brief: BriefView(snapshot: snapshot, brief: brief)
+    Group {
+        switch section {
+        case .overview: OverviewView(snapshot: snapshot, brief: brief)
+        case .acquisition: AcquisitionView(snapshot: snapshot, brief: brief)
+        case .engagement: EngagementView(snapshot: snapshot, brief: brief)
+        case .stability: StabilityView(snapshot: snapshot, brief: brief)
+        case .reviews: ReviewsView(snapshot: snapshot, brief: brief)
+        case .brief: BriefView(snapshot: snapshot, brief: brief)
+        }
     }
+    .contextMenu {
+        ReportMenuItems(context: DashboardReportContext(snapshot: snapshot, section: section))
+    }
+    .environment(\.dashboardReportContext, DashboardReportContext(snapshot: snapshot, section: section))
 }
 
 private struct OnboardingView: View {
