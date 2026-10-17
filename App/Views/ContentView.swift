@@ -81,19 +81,14 @@ struct ContentView: View {
     private var sectionSelection: Binding<DashboardSection?> {
         Binding(
             get: {
-                if let last = model.navigationPath.last {
-                    switch last {
-                    case .section(let s, _): return s
-                    case .appDetail: return model.selectedSection
-                    }
-                }
+                // The sidebar owns the root section; pushed routes belong to the detail stack.
+                // Deriving this selection from the path lets List write it back and clear the stack.
                 return model.selectedSection
             },
             set: {
-                if let newSection = $0 {
-                    model.navigationPath.removeAll()
-                    model.selectedSection = newSection
-                }
+                guard let newSection = $0, newSection != model.selectedSection else { return }
+                model.navigationPath.removeAll()
+                model.selectedSection = newSection
             }
         )
     }
