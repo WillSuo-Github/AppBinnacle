@@ -1,0 +1,86 @@
+{
+  "fill": {
+    "linear-gradient": [
+      "srgb:0.10196,0.47059,0.45098,1.00000",
+      "srgb:0.03529,0.17647,0.23137,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.5,
+        "y": 0
+      },
+      "stop": {
+        "x": 0.5,
+        "y": 1
+      }
+    }
+  },
+  "groups": [
+    {
+      "name": "Star",
+      "layers": [
+        {
+          "name": "star",
+          "image-name": "star.svg",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.6
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      },
+      "specular": true
+    },
+    {
+      "name": "Bars",
+      "layers": [
+        {
+          "name": "peak",
+          "image-name": "peak.svg",
+          "glass": true
+        },
+        {
+          "name": "bars",
+          "image-name": "bars.svg",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.2
+      },
+      "specular": true
+    },
+    {
+      "name": "Ring",
+      "layers": [
+        {
+          "name": "ring",
+          "image-name": "ring.svg",
+          "glass": true,
+          "opacity": 0.85
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.4
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.4
+      },
+      "specular": true
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}
