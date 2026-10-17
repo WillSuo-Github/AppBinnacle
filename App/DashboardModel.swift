@@ -241,9 +241,52 @@ final class DashboardModel {
             apply(first)
         }
 
+        await refreshExchangeRates()
+
         if !credentials.problems.isEmpty {
             refreshError = credentials.problems.joined(separator: "\n")
         }
+    }
+
+    var displayCurrency: DisplayCurrency {
+        get { configuration.displayCurrency }
+        set { configuration.displayCurrency = newValue }
+    }
+
+    private(set) var exchangeRates = ExchangeRateCache.standard.load()
+    private(set) var exchangeRateError: String?
+    private(set) var isLoadingExchangeRates = false
+    @ObservationIgnored private var lastExchangeRateAttempt: Date?
+
+    func refreshExchangeRates(force: Bool = false) async {
+        guard !isLoadingExchangeRates else { return }
+        if !force {
+            if exchangeRates?.isFresh(at: Date()) == true { return }
+            if let lastExchangeRateAttempt, Date().timeIntervalSince(lastExchangeRateAttempt) < 3600 { return }
+        }
+        lastExchangeRateAttempt = Date()
+        isLoadingExchangeRates = true
+        defer { isLoadingExchangeRates = false }
+        do {
+            let latest = try await ExchangeRateClient().latest()
+            exchangeRates = latest
+            exchangeRateError = nil
+            try? ExchangeRateCache.standard.save(latest)
+        } catch {
+            exchangeRateError = error.localizedDescription
+        }
+    }
+
+    func convertedProceeds(_ rows: [AppBrief.CurrencyProceeds]) -> ConvertedProceeds {
+        ConvertedProceeds.make(rows, currency: displayCurrency.rawValue, rates: exchangeRates)
+    }
+
+    func displayBrief(_ brief: AppBrief) -> AppBrief {
+        var result = brief
+        if let acquisition = result.acquisition {
+            result.acquisition?.convertedProceeds = convertedProceeds(acquisition.proceeds)
+        }
+        return result
     }
 
     // MARK: Settings

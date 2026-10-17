@@ -60,6 +60,9 @@ struct BriefView: View {
             .padding(.horizontal, 24)
             .padding(.top, 16)
 
+            CurrencyConversionNote()
+                .padding(.horizontal, 24)
+
             ScrollView {
                 Text(text)
                     .font(.system(.callout, design: .monospaced))
@@ -105,8 +108,8 @@ struct BriefView: View {
 
     private var rendered: String {
         let briefsToRender = isPortfolio && !model.loadedSnapshots.isEmpty
-            ? model.loadedSnapshots.map { BriefBuilder.make(from: $0) }
-            : [brief]
+            ? model.loadedSnapshots.map { model.displayBrief(BriefBuilder.make(from: $0)) }
+            : [model.displayBrief(brief)]
         return (try? BriefRenderer.render(briefsToRender, format: format)) ?? "The brief could not be rendered."
     }
 }

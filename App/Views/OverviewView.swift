@@ -20,6 +20,8 @@ struct OverviewView: View {
                 reviewsTile
             }
 
+            CurrencyConversionNote()
+
             if isPortfolio && !model.configuration.apps.isEmpty {
                 PortfolioMatrixCard(
                     snapshots: model.loadedSnapshots,
@@ -172,26 +174,16 @@ struct OverviewView: View {
             model.push(.section(.acquisition, appID: isPortfolio ? nil : snapshot.app.appleID))
         }
         if let acquisition = brief.acquisition {
-            if let top = acquisition.proceeds.first {
-                MetricTile(
-                    title: isPortfolio ? "Total Proceeds" : "Proceeds",
-                    value: top.current.formatted(.currency(code: top.currency)),
-                    change: MetricChange(current: top.current.doubleValue, previous: top.previous.doubleValue),
-                    caption: acquisition.proceeds.count > 1 ? "+ \(acquisition.proceeds.count - 1) more currencies" : nil,
-                    systemImage: "dollarsign.circle.fill",
-                    accentColor: .green,
-                    action: action
-                )
-            } else {
-                MetricTile(
-                    title: isPortfolio ? "Total Proceeds" : "Proceeds",
-                    value: "None",
-                    caption: "No paid sales in this period",
-                    systemImage: "dollarsign.circle.fill",
-                    accentColor: .green,
-                    action: action
-                )
-            }
+            let total = model.convertedProceeds(acquisition.proceeds)
+            MetricTile(
+                title: isPortfolio ? "Total Proceeds" : "Proceeds",
+                value: total.formattedCurrent,
+                change: total.change,
+                caption: total.missingCurrencies.isEmpty ? "Estimated · \(total.currency)" : "Missing rates: \(total.missingCurrencies.joined(separator: ", "))",
+                systemImage: "dollarsign.circle.fill",
+                accentColor: .green,
+                action: action
+            )
         } else {
             unavailableTile(
                 isPortfolio ? "Total Proceeds" : "Proceeds",
@@ -345,6 +337,7 @@ struct PortfolioMatrixCard: View {
 }
 
 struct AppPortfolioRow: View {
+    @Environment(DashboardModel.self) private var model
     let app: TrackedApp
     let snapshot: DashboardSnapshot?
     let onSelect: () -> Void
@@ -396,14 +389,15 @@ struct AppPortfolioRow: View {
                     Text("Proceeds")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                    let proceeds = snapshot?.sales?.proceeds(in: snapshot?.salesRange ?? snapshot?.range ?? DayRange(ending: Day.yesterday(), length: 7)) ?? [:]
-                    let top = proceeds.first
-                    Text(top != nil ? top!.value.formatted(.currency(code: top!.key)) : "$0.00")
+                    let amounts = snapshot?.sales?.proceeds(in: snapshot?.salesRange ?? snapshot?.range ?? DayRange(ending: Day.yesterday(), length: 7)) ?? [:]
+                    let total = model.convertedProceeds(amounts.map { AppBrief.CurrencyProceeds(currency: $0.key, current: $0.value, previous: 0) })
+                    Text(snapshot?.sales == nil ? "—" : total.formattedCurrent)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(top != nil && top!.value > 0 ? Color.green : Color.secondary)
+                        .foregroundStyle((total.current ?? 0) > 0 ? Color.green : Color.secondary)
+                        .help(total.missingCurrencies.isEmpty ? "Estimated proceeds in \(total.currency)" : "Missing exchange rates: \(total.missingCurrencies.joined(separator: ", "))")
                 }
-                .frame(width: 85, alignment: .trailing)
+                .frame(width: 100, alignment: .trailing)
 
                 // Active Users (GA4)
                 VStack(alignment: .trailing, spacing: 2) {

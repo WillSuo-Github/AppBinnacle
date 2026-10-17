@@ -44,6 +44,7 @@ struct ContentView: View {
         }
         .tint(Color.accentColor)
         .toolbar { toolbarContent }
+        .task { await model.refreshExchangeRates() }
         .task(id: model.selectionKey) {
             await model.loadSelection()
         }

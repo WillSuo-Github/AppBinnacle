@@ -2,7 +2,7 @@
 
 AppBinnacle is an open-source macOS app and command-line tool that brings your App Store Connect and Firebase metrics together into a unified, privacy-first developer cockpit. It tracks sales, downloads, proceeds, active users, stability, and customer reviews across your entire product portfolio, and turns complex telemetry into compact, actionable digests ready for AI agents or spreadsheet exports.
 
-Everything runs locally on your Mac. Your App Store Connect private keys and Google service accounts remain securely in your macOS Keychain, and AppBinnacle communicates directly with Apple and Google APIs with zero third-party intermediaries.
+Everything runs locally on your Mac. Your App Store Connect private keys and Google service accounts remain securely in your macOS Keychain, and AppBinnacle communicates directly with Apple and Google APIs with zero third-party intermediaries. Display-currency conversion separately downloads public USD-based rates from ExchangeRate-API; no app identifiers, sales figures, or credentials are sent with that request.
 
 ---
 
@@ -12,6 +12,11 @@ Everything runs locally on your Mac. Your App Store Connect private keys and Goo
 * **All Apps Macro Overview**: Select **All Apps** in the app menu to aggregate total downloads, proceeds, GA4 active users, studio-wide crash-free rate, and reviews across all tracked applications.
 * **All Products Matrix**: A multi-app overview table displaying key performance indicators (Downloads, Revenue, Active Users, Crash-Free %, and Review Counts) for every product with one-click drilldown into individual dashboards.
 * **Click-to-Detail Navigation**: Click any top metric card or chart in the Overview to push directly into that section's detailed report, with native macOS Back navigation (`<`) and keyboard shortcut (`⌘[`).
+
+### Display Currency
+Choose **Settings → General → Revenue Display → Display Currency** to combine proceeds into USD, CNY, EUR, or another supported display currency. Overview totals, product rows, revenue details, and GUI brief totals update immediately and remember the selection.
+
+Conversions use cached daily [ExchangeRate-API](https://www.exchangerate-api.com) rates. The rate date is shown, and the same rates are applied to both comparison periods. These are estimates rather than Apple's own currency conversions or final payouts. If a required rate is unavailable, the affected total is left unavailable rather than showing a partial sum. Original sales snapshots and daily CSV exports retain the reported currencies.
 
 ### 2. Multi-Dimensional Dashboards & Analytics
 * **Downloads & Revenue**:

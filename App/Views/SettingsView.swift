@@ -58,6 +58,27 @@ private struct GeneralSettingsView: View {
             }
 
             Section {
+                Picker("Display Currency", selection: $model.displayCurrency) {
+                    ForEach(DisplayCurrency.allCases) { currency in
+                        Text(currency.title).tag(currency)
+                    }
+                }
+                CurrencyConversionNote()
+                HStack {
+                    Button("Update Exchange Rates") {
+                        Task { await model.refreshExchangeRates(force: true) }
+                    }
+                    .disabled(model.isLoadingExchangeRates)
+                    if model.isLoadingExchangeRates { ProgressView().controlSize(.small) }
+                }
+                if let error = model.exchangeRateError {
+                    Text(error).font(.caption).foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Revenue Display")
+            }
+
+            Section {
                 let embeddedPath = Bundle.main.bundleURL.appending(path: "Contents/MacOS/binnacle").path(percentEncoded: false)
                 LabeledContent("Embedded CLI Path") {
                     Text(embeddedPath)

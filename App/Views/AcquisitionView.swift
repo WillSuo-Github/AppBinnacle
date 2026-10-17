@@ -4,6 +4,7 @@ import SwiftUI
 struct AcquisitionView: View {
     let snapshot: DashboardSnapshot
     let brief: AppBrief
+    @Environment(DashboardModel.self) private var model
     @State private var chartMode = ChartMode.daily
 
     enum ChartMode: String, CaseIterable, Identifiable {
@@ -175,42 +176,26 @@ struct AcquisitionView: View {
 
                 HStack(alignment: .top, spacing: 14) {
                     ChartCard(
-                        title: "Proceeds & In-App Purchases",
-                        subtitle: "By currency of proceeds",
+                        title: "Total Proceeds",
+                        subtitle: "All currencies combined in \(model.displayCurrency.rawValue)",
                         systemImage: "dollarsign.circle.fill",
                         accentColor: .green
                     ) {
-                        if acquisition.proceeds.isEmpty {
-                            VStack(spacing: 8) {
-                                Image(systemName: "creditcard")
-                                    .font(.title3)
-                                    .foregroundStyle(.tertiary)
-                                Text("No paid sales or IAP in this period.")
-                                    .font(.callout)
+                        let total = model.convertedProceeds(acquisition.proceeds)
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text(total.formattedCurrent)
+                                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                                .monospacedDigit()
+                            LabeledContent("Previous period", value: total.formattedPrevious)
+                                .foregroundStyle(.secondary)
+                            if !total.missingCurrencies.isEmpty {
+                                Text("Missing exchange rates: \(total.missingCurrencies.joined(separator: ", ")). No partial total is shown.")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            .frame(maxWidth: .infinity, minHeight: 140)
-                        } else {
-                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
-                                GridRow {
-                                    Text("Currency")
-                                    Text("This period").gridColumnAlignment(.trailing)
-                                    Text("Previous").gridColumnAlignment(.trailing)
-                                }
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-
-                                ForEach(acquisition.proceeds, id: \.currency) { row in
-                                    GridRow {
-                                        Text(row.currency).fontWeight(.semibold)
-                                        Text(row.current.formatted(.currency(code: row.currency))).monospacedDigit()
-                                        Text(row.previous.formatted(.currency(code: row.currency))).monospacedDigit().foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 6)
+                            CurrencyConversionNote()
                         }
+                        .padding(.vertical, 6)
                     }
 
                     ChartCard(

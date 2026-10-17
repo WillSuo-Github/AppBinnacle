@@ -33,6 +33,7 @@ struct AppBrief: Codable, Equatable, Sendable {
         var updates: Int
         var inAppPurchases: MetricChange
         var proceeds: [CurrencyProceeds]
+        var convertedProceeds: ConvertedProceeds? = nil
         var topCountries: [CountryDownloads]
         var unclassifiedProductTypes: [String: Int]
     }
@@ -285,7 +286,12 @@ enum BriefRenderer {
             let stab = brief.stability
             let rev = brief.reviews
 
-            let proceedsString = acq?.proceeds.map { "\($0.current) \($0.currency)" }.joined(separator: "; ") ?? ""
+            let proceedsString: String
+            if let total = acq?.convertedProceeds {
+                proceedsString = total.current.map { "\($0) \(total.currency)" } ?? "Conversion unavailable"
+            } else {
+                proceedsString = acq?.proceeds.map { "\($0.current) \($0.currency)" }.joined(separator: "; ") ?? ""
+            }
 
             rows.append([
                 brief.app.name,
@@ -345,7 +351,15 @@ enum BriefRenderer {
                 ("In-app purchases", acquisition.inAppPurchases),
             ]))
             lines.append("Updates: \(Format.integer(acquisition.updates))")
-            if !acquisition.proceeds.isEmpty {
+            if let total = acquisition.convertedProceeds {
+                lines.append("Estimated proceeds: \(total.currency) \(total.formattedCurrent) (previous \(total.formattedPrevious))")
+                if let date = total.rateDate {
+                    lines.append("Converted using ExchangeRate-API rates from \(Day(date: date, timeZone: TimeZone(secondsFromGMT: 0)!).iso); the same rates apply to both periods. https://www.exchangerate-api.com")
+                }
+                if !total.missingCurrencies.isEmpty {
+                    lines.append("Conversion unavailable for: \(total.missingCurrencies.joined(separator: ", ")).")
+                }
+            } else if !acquisition.proceeds.isEmpty {
                 let proceeds = acquisition.proceeds.map {
                     "\(Format.money($0.current, currency: $0.currency)) (previous \(Format.money($0.previous, currency: $0.currency)))"
                 }

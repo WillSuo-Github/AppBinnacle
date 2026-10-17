@@ -5,11 +5,13 @@ struct BinnacleConfiguration: Codable, Equatable, Sendable {
     var appStoreConnect = AppStoreConnectSettings()
     var google = GoogleSettings()
     var apps: [TrackedApp] = []
+    var displayCurrency: DisplayCurrency = .usd
 
-    init(appStoreConnect: AppStoreConnectSettings = .init(), google: GoogleSettings = .init(), apps: [TrackedApp] = []) {
+    init(appStoreConnect: AppStoreConnectSettings = .init(), google: GoogleSettings = .init(), apps: [TrackedApp] = [], displayCurrency: DisplayCurrency = .usd) {
         self.appStoreConnect = appStoreConnect
         self.google = google
         self.apps = apps
+        self.displayCurrency = displayCurrency
     }
 
     init(from decoder: Decoder) throws {
@@ -17,6 +19,7 @@ struct BinnacleConfiguration: Codable, Equatable, Sendable {
         appStoreConnect = try container.decodeIfPresent(AppStoreConnectSettings.self, forKey: .appStoreConnect) ?? .init()
         google = try container.decodeIfPresent(GoogleSettings.self, forKey: .google) ?? .init()
         apps = try container.decodeIfPresent([TrackedApp].self, forKey: .apps) ?? []
+        displayCurrency = (try? container.decode(DisplayCurrency.self, forKey: .displayCurrency)) ?? .usd
     }
 
     func app(matching query: String) -> TrackedApp? {
